@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 
 public class CommentDAO extends MongoBaseDAO {
     public CommentDAO() {
@@ -30,6 +31,23 @@ public class CommentDAO extends MongoBaseDAO {
             .sort(Sorts.descending("created_at"))
             .limit(limit)
             .into(new ArrayList<>());
+    }
+
+    public boolean deleteById(String commentId) {
+        if (!ObjectId.isValid(commentId)) {
+            return false;
+        }
+        return collection().deleteOne(Filters.eq("_id", new ObjectId(commentId))).getDeletedCount() == 1;
+    }
+
+    public boolean deleteByIdAndUser(String commentId, String userId) {
+        if (!ObjectId.isValid(commentId)) {
+            return false;
+        }
+        return collection().deleteOne(Filters.and(
+            Filters.eq("_id", new ObjectId(commentId)),
+            Filters.eq("user_id", userId)
+        )).getDeletedCount() == 1;
     }
 
     public List<Document> ratingSummary() {

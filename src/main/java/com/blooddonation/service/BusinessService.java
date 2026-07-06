@@ -1,9 +1,11 @@
 package com.blooddonation.service;
 
 import com.blooddonation.dao.mongo.DetailDAO;
+import com.blooddonation.dao.mongo.CommentDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
+import com.blooddonation.dao.mysql.UserDAO;
 import com.blooddonation.exception.DBException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,21 +17,33 @@ public class BusinessService {
     private final ItemDAO itemDAO;
     private final CategoryDAO categoryDAO;
     private final DetailDAO detailDAO;
+    private final CommentDAO commentDAO;
     private final OrderDAO orderDAO;
+    private final UserDAO userDAO;
 
     public BusinessService() {
-        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new OrderDAO());
+        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO());
     }
 
     BusinessService(ItemDAO itemDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
-        this(itemDAO, new CategoryDAO(), detailDAO, orderDAO);
+        this(itemDAO, new CategoryDAO(), detailDAO, new CommentDAO(), orderDAO, new UserDAO());
     }
 
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
+        this(itemDAO, categoryDAO, detailDAO, new CommentDAO(), orderDAO, new UserDAO());
+    }
+
+    BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO) {
+        this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, new UserDAO());
+    }
+
+    BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO, UserDAO userDAO) {
         this.itemDAO = itemDAO;
         this.categoryDAO = categoryDAO;
         this.detailDAO = detailDAO;
+        this.commentDAO = commentDAO;
         this.orderDAO = orderDAO;
+        this.userDAO = userDAO;
     }
 
     public List<Map<String, Object>> findCategories() {
@@ -171,6 +185,49 @@ public class BusinessService {
 
     public Optional<Document> findItemDetail(long itemId) {
         return itemId <= 0 ? Optional.empty() : detailDAO.findByItemId(String.valueOf(itemId));
+    }
+
+    public List<Document> findItemComments(long itemId) {
+        return itemId <= 0 ? List.of() : commentDAO.findByItemId(String.valueOf(itemId), 30);
+    }
+
+    public BusinessResult createComment(long userId, long itemId, String content, int rating, List<String> tags) {
+        if (userId <= 0 || itemId <= 0) {
+            return BusinessResult.fail("请选择有效用户和库存批次");
+        }
+        if (itemDAO.findById(itemId).isEmpty()) {
+            return BusinessResult.fail("库存批次不存在");
+        }
+        if (content == null || content.trim().isEmpty()) {
+            return BusinessResult.fail("请输入评论内容");
+        }
+        if (rating < 1 || rating > 5) {
+            return BusinessResult.fail("评分必须在 1 到 5 之间");
+        }
+
+        commentDAO.createComment(String.valueOf(userId), String.valueOf(itemId), content.trim(), rating, tags == null ? List.of() : tags);
+        return BusinessResult.ok(itemId, "评论已发布");
+    }
+
+    public BusinessResult deleteComment(long userId, boolean admin, String commentId) {
+        if (userId <= 0 || commentId == null || commentId.isBlank()) {
+            return BusinessResult.fail("请选择有效评论");
+        }
+        boolean deleted = admin
+            ? commentDAO.deleteById(commentId)
+            : commentDAO.deleteByIdAndUser(commentId, String.valueOf(userId));
+        return deleted
+            ? BusinessResult.ok(0L, "评论已删除")
+            : BusinessResult.fail("评论不存在或无权删除");
+    }
+
+    public String findUsername(long userId) {
+        if (userId <= 0) {
+            return "未知用户";
+        }
+        return userDAO.findById(userId)
+            .map(row -> String.valueOf(row.get("username")))
+            .orElse("用户 " + userId);
     }
 
     public BusinessResult createOrder(long userId, long itemId, BigDecimal amount) {

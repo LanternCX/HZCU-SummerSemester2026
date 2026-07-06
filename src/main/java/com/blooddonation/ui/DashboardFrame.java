@@ -16,10 +16,13 @@ import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -81,7 +84,7 @@ public class DashboardFrame extends JFrame {
 
         JPanel nav = new JPanel(new GridLayout(0, 1, 0, 10));
         nav.setBackground(Ui.SIDEBAR);
-        String[] modules = {"业务数据", "订单记录", "分类管理", "评论互动", "统计报表", "系统日志"};
+        String[] modules = {"业务数据", "订单记录", "分类管理", "统计报表", "系统日志"};
         for (String module : modules) {
             JButton button = new JButton(module);
             button.setFocusPainted(false);
@@ -735,7 +738,10 @@ public class DashboardFrame extends JFrame {
             actions.add(deleteButton);
         }
 
-        JPanel detail = detailPage("批次详情", itemDetailBody(table, itemId), actions);
+        JPanel detail = detailPage("批次详情", itemDetailBody(table, itemId, session, () -> {
+            closeDetailTab(tabs, key);
+            openItemDetailTab(tabs, table, itemId, model, session);
+        }), actions);
         addDetailTab(tabs, detailTabTitle("批次", table, itemId, 1), detail, key);
     }
 
@@ -870,7 +876,11 @@ public class DashboardFrame extends JFrame {
     }
 
     private JPanel detailPage(String title, JPanel body, JPanel actions) {
-        return section(title, body, actions);
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        return section(title, scroll, actions);
     }
 
     private boolean selectDetailTab(JPanel tabs, String key) {
@@ -912,7 +922,7 @@ public class DashboardFrame extends JFrame {
         return prefix + "详情";
     }
 
-    private JPanel itemDetailBody(JTable table, long itemId) {
+    private JPanel itemDetailBody(JTable table, long itemId, UserSession session, Runnable onChanged) {
         JPanel body = detailBody();
         for (int i = 0; i < table.getModel().getRowCount(); i++) {
             if (((Number) table.getModel().getValueAt(i, 0)).longValue() == itemId) {
@@ -922,7 +932,7 @@ public class DashboardFrame extends JFrame {
                 addInfo(grid, 1, 1, 1, "数量", table.getModel().getValueAt(i, 3));
                 addInfo(grid, 2, 0, 2, "状态", table.getModel().getValueAt(i, 4));
                 body.add(grid, BorderLayout.NORTH);
-                body.add(itemExtraPanel(itemId), BorderLayout.CENTER);
+                body.add(itemExtraPanel(itemId, session, onChanged), BorderLayout.CENTER);
                 return body;
             }
         }
@@ -1067,17 +1077,225 @@ public class DashboardFrame extends JFrame {
         return block;
     }
 
-    private JPanel itemExtraPanel(long itemId) {
-        JPanel panel = new JPanel(new GridLayout(0, 1, 0, 12));
+    private JPanel itemExtraPanel(long itemId, UserSession session, Runnable onChanged) {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setBackground(Ui.PANEL);
+        panel.add(commentPanel(itemId, session, onChanged), BorderLayout.NORTH);
         try {
             Document detail = businessService.findItemDetail(itemId).orElse(null);
             String description = detail == null ? "" : detail.getString("description");
-            panel.add(textBlock("详情说明", description == null || description.isBlank() ? "暂无详情说明" : description));
+            panel.add(textBlock("详情说明", description == null || description.isBlank() ? "暂无详情说明" : description), BorderLayout.CENTER);
         } catch (RuntimeException ex) {
-            panel.add(textBlock("详情说明", "详情加载失败，请检查数据库连接。"));
+            panel.add(textBlock("详情说明", "详情加载失败，请检查数据库连接。"), BorderLayout.CENTER);
         }
         return panel;
+    }
+
+    private JPanel commentPanel(long itemId, UserSession session, Runnable onChanged) {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(new Color(250, 249, 246));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Ui.BORDER),
+            BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        ));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(250, 249, 246));
+        JLabel title = new JLabel("评论互动");
+        title.setForeground(Ui.TEXT);
+        title.setFont(Ui.font(15, Font.BOLD));
+        header.add(title, BorderLayout.WEST);
+        JButton addButton = new JButton("发表评论");
+        Ui.primaryButton(addButton, 112);
+        addButton.addActionListener(event -> showCreateCommentDialog(itemId, session, onChanged));
+        header.add(addButton, BorderLayout.EAST);
+        panel.add(header, BorderLayout.NORTH);
+
+        try {
+            List<Document> comments = businessService.findItemComments(itemId);
+            panel.add(commentPager(comments, session, onChanged), BorderLayout.CENTER);
+        } catch (RuntimeException ex) {
+            panel.add(textBlock("评论", "评论加载失败，请检查数据库连接。"), BorderLayout.CENTER);
+        }
+        return panel;
+    }
+
+    private JPanel commentPager(List<Document> comments, UserSession session, Runnable onChanged) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(new Color(250, 249, 246));
+        JPanel card = new JPanel(new BorderLayout(0, 10));
+        card.setBackground(Ui.PANEL);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Ui.BORDER),
+            BorderFactory.createEmptyBorder(14, 16, 14, 16)
+        ));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+        JPanel meta = detailGrid();
+        JTextArea content = area(3);
+        content.setEditable(false);
+        content.setBackground(Ui.PANEL);
+        content.setBorder(BorderFactory.createEmptyBorder());
+        card.add(meta, BorderLayout.NORTH);
+        card.add(content, BorderLayout.CENTER);
+
+        JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        controls.setBackground(new Color(250, 249, 246));
+        controls.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        JButton prev = new JButton("上一条");
+        JButton next = new JButton("下一条");
+        JButton delete = new JButton("删除");
+        Ui.textButton(prev);
+        Ui.textButton(next);
+        Ui.textButton(delete);
+        JLabel page = new JLabel();
+        page.setForeground(Ui.TEXT);
+        page.setFont(Ui.font(13, Font.PLAIN));
+        controls.add(prev);
+        controls.add(page);
+        controls.add(next);
+        controls.add(delete);
+        panel.add(controls);
+        panel.add(card);
+
+        int[] index = {0};
+        Runnable render = () -> renderComment(comments, index[0], session, meta, content, page, prev, next, delete);
+        prev.addActionListener(event -> {
+            index[0]--;
+            render.run();
+        });
+        next.addActionListener(event -> {
+            index[0]++;
+            render.run();
+        });
+        delete.addActionListener(event -> {
+            if (comments.isEmpty() || !confirm("确认删除当前评论？")) {
+                return;
+            }
+            Object id = comments.get(index[0]).get("_id");
+            BusinessResult result = businessService.deleteComment(session.userId(), isAdmin(session), String.valueOf(id));
+            showResult(result);
+            if (result.success()) {
+                onChanged.run();
+            }
+        });
+        render.run();
+        return panel;
+    }
+
+    private void renderComment(
+        List<Document> comments,
+        int index,
+        UserSession session,
+        JPanel meta,
+        JTextArea content,
+        JLabel page,
+        JButton prev,
+        JButton next,
+        JButton delete
+    ) {
+        if (comments.isEmpty()) {
+            meta.removeAll();
+            addInfo(meta, 0, 0, 2, "评论", "暂无评论");
+            content.setText("");
+            page.setText("0 / 0");
+            prev.setEnabled(false);
+            next.setEnabled(false);
+            delete.setVisible(false);
+            return;
+        }
+        Document comment = comments.get(index);
+        int rating = comment.get("rating", Number.class) == null ? 0 : comment.get("rating", Number.class).intValue();
+        String tags = commentTags(comment);
+        meta.removeAll();
+        addInfo(meta, 0, 0, 1, "用户", commentUsername(comment, session));
+        addInfo(meta, 0, 1, 1, "评分", rating);
+        addInfo(meta, 0, 2, 1, "标签", tags.isEmpty() ? "无" : tags);
+        addInfo(meta, 0, 3, 1, "时间", dateText(comment.getDate("created_at")));
+        meta.revalidate();
+        meta.repaint();
+        content.setText(comment.getString("content"));
+        content.setCaretPosition(0);
+        page.setText((index + 1) + " / " + comments.size());
+        prev.setEnabled(index > 0);
+        next.setEnabled(index < comments.size() - 1);
+        delete.setVisible(canDeleteComment(session, comment));
+    }
+
+    private String commentUsername(Document comment, UserSession session) {
+        String userId = comment.getString("user_id");
+        if (String.valueOf(session.userId()).equals(userId)) {
+            return session.username();
+        }
+        try {
+            return businessService.findUsername(Long.parseLong(userId));
+        } catch (RuntimeException ex) {
+            return "用户 " + userId;
+        }
+    }
+
+    private boolean canDeleteComment(UserSession session, Document comment) {
+        return comment.get("_id") != null && (isAdmin(session) || String.valueOf(session.userId()).equals(comment.getString("user_id")));
+    }
+
+    private String commentTags(Document comment) {
+        List<?> tags = comment.getList("tags", Object.class, List.of());
+        return tags.stream()
+            .map(String::valueOf)
+            .filter(tag -> !tag.isBlank())
+            .reduce((left, right) -> left + "、" + right)
+            .orElse("");
+    }
+
+    private void showCreateCommentDialog(long itemId, UserSession session, Runnable onChanged) {
+        JDialog dialog = new JDialog(this, "发表评论", true);
+        JTextArea content = area(3);
+        JSpinner rating = new JSpinner(new SpinnerNumberModel(5, 1, 5, 1));
+        rating.setPreferredSize(new Dimension(72, 40));
+        JTextField tags = field();
+        JPanel form = formPanel();
+        form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
+        addFormField(form, 0, 0, 2, "评论内容", new JScrollPane(content));
+        addFormField(form, 1, 0, 1, "评分", rating);
+        addFormField(form, 1, 1, 1, "标签", tags);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("发布");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            BusinessResult result = businessService.createComment(
+                session.userId(),
+                itemId,
+                content.getText(),
+                ((Number) rating.getValue()).intValue(),
+                tags(tags.getText())
+            );
+            showResult(result);
+            if (result.success()) {
+                dialog.dispose();
+                onChanged.run();
+            }
+        });
+        dialog.setContentPane(dialogContent("发表评论", form, cancelButton, saveButton));
+        dialog.setSize(560, 360);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private List<String> tags(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(value.split("[,，\\s]+"))
+            .map(String::trim)
+            .filter(tag -> !tag.isEmpty())
+            .toList();
+    }
+
+    private String dateText(Date date) {
+        return date == null ? "" : new SimpleDateFormat("yyyy-MM-dd HH:mm").format(date);
     }
 
     private JPanel textBlock(String label, String text) {
@@ -1090,7 +1308,7 @@ public class DashboardFrame extends JFrame {
         JLabel labelView = new JLabel(label);
         labelView.setForeground(Ui.TEXT);
         labelView.setFont(Ui.font(15, Font.BOLD));
-        JTextArea textView = area(4);
+        JTextArea textView = area(2);
         textView.setEditable(false);
         textView.setOpaque(false);
         textView.setBorder(BorderFactory.createEmptyBorder());

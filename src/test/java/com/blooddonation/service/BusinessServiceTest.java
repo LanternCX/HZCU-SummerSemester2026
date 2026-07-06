@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.blooddonation.dao.mongo.DetailDAO;
+import com.blooddonation.dao.mongo.CommentDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
+import com.blooddonation.dao.mysql.UserDAO;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
@@ -173,6 +175,61 @@ class BusinessServiceTest {
 
         assertTrue(detail.isPresent());
         assertEquals("详情", detail.get().getString("description"));
+    }
+
+    @Test
+    void createCommentRequiresExistingItemAndValidRating() {
+        FakeItemDAO items = new FakeItemDAO();
+        items.item = item(3L, new BigDecimal("10.00"), 1);
+        FakeCommentDAO comments = new FakeCommentDAO();
+        BusinessService service = new BusinessService(items, new FakeCategoryDAO(), new FakeDetailDAO(), comments, new FakeOrderDAO());
+
+        BusinessService.BusinessResult result = service.createComment(2L, 3L, "  质量稳定  ", 5, List.of("稳定"));
+
+        assertTrue(result.success());
+        assertEquals("2", comments.userId);
+        assertEquals("3", comments.itemId);
+        assertEquals("质量稳定", comments.content);
+        assertEquals(5, comments.rating);
+        assertEquals(List.of("稳定"), comments.tags);
+
+        BusinessService.BusinessResult invalid = service.createComment(2L, 3L, "评分异常", 6, List.of());
+
+        assertFalse(invalid.success());
+        assertEquals("评分必须在 1 到 5 之间", invalid.message());
+    }
+
+    @Test
+    void deleteCommentAllowsAdminOrOwnerOnly() {
+        FakeCommentDAO comments = new FakeCommentDAO();
+        comments.deleteSucceeds = true;
+        BusinessService service = new BusinessService(new FakeItemDAO(), new FakeCategoryDAO(), new FakeDetailDAO(), comments, new FakeOrderDAO());
+
+        BusinessService.BusinessResult adminResult = service.deleteComment(1L, true, "c1");
+        BusinessService.BusinessResult ownerResult = service.deleteComment(2L, false, "c2");
+
+        assertTrue(adminResult.success());
+        assertTrue(ownerResult.success());
+        assertEquals("c1", comments.deletedId);
+        assertEquals("c2", comments.deletedOwnId);
+        assertEquals("2", comments.deletedOwnUserId);
+    }
+
+    @Test
+    void findUsernameReturnsUserDisplayName() {
+        FakeUserDAO users = new FakeUserDAO();
+        users.row = Map.of("user_id", 2L, "username", "user01");
+        BusinessService service = new BusinessService(
+            new FakeItemDAO(),
+            new FakeCategoryDAO(),
+            new FakeDetailDAO(),
+            new FakeCommentDAO(),
+            new FakeOrderDAO(),
+            users
+        );
+
+        assertEquals("user01", service.findUsername(2L));
+        assertEquals("用户 3", service.findUsername(3L));
     }
 
     @Test
@@ -456,6 +513,51 @@ class BusinessServiceTest {
         public boolean deleteByItemId(String itemId) {
             deletedItemId = itemId;
             return true;
+        }
+    }
+
+    private static class FakeCommentDAO extends CommentDAO {
+        private String userId;
+        private String itemId;
+        private String content;
+        private int rating;
+        private List<String> tags;
+        private String deletedId;
+        private String deletedOwnId;
+        private String deletedOwnUserId;
+        private boolean deleteSucceeds;
+
+        @Override
+        public void createComment(String userId, String itemId, String content, int rating, List<String> tags) {
+            this.userId = userId;
+            this.itemId = itemId;
+            this.content = content;
+            this.rating = rating;
+            this.tags = tags;
+        }
+
+        @Override
+        public boolean deleteById(String commentId) {
+            deletedId = commentId;
+            return deleteSucceeds;
+        }
+
+        @Override
+        public boolean deleteByIdAndUser(String commentId, String userId) {
+            deletedOwnId = commentId;
+            deletedOwnUserId = userId;
+            return deleteSucceeds;
+        }
+    }
+
+    private static class FakeUserDAO extends UserDAO {
+        private Map<String, Object> row;
+
+        @Override
+        public Optional<Map<String, Object>> findById(long userId) {
+            return row != null && ((Number) row.get("user_id")).longValue() == userId
+                ? Optional.of(row)
+                : Optional.empty();
         }
     }
 
