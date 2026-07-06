@@ -24,6 +24,11 @@ public class CategoryDAO extends BaseDAO {
         return queryOne(sql, statement -> statement.setLong(1, categoryId));
     }
 
+    public List<Map<String, Object>> findAll() {
+        return queryList("SELECT * FROM categories ORDER BY parent_id IS NULL DESC, parent_id, category_id", statement -> {
+        });
+    }
+
     public List<Map<String, Object>> findChildren(Long parentId) {
         if (parentId == null) {
             return queryList("SELECT * FROM categories WHERE parent_id IS NULL", statement -> {

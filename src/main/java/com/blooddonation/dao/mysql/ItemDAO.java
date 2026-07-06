@@ -21,9 +21,25 @@ public class ItemDAO extends BaseDAO {
         return queryOne(sql, statement -> statement.setLong(1, itemId));
     }
 
+    public List<Map<String, Object>> findAll() {
+        return queryList("SELECT * FROM items ORDER BY created_at DESC, item_id DESC", statement -> {
+        });
+    }
+
     public List<Map<String, Object>> findByCategory(long categoryId) {
         String sql = "SELECT * FROM items WHERE category_id = ? ORDER BY created_at DESC";
         return queryList(sql, statement -> statement.setLong(1, categoryId));
+    }
+
+    public boolean update(long itemId, String title, long categoryId, BigDecimal amount, int status) {
+        String sql = "UPDATE items SET title = ?, category_id = ?, amount = ?, status = ? WHERE item_id = ?";
+        return update(sql, statement -> {
+            statement.setString(1, title);
+            statement.setLong(2, categoryId);
+            statement.setBigDecimal(3, amount);
+            statement.setInt(4, status);
+            statement.setLong(5, itemId);
+        });
     }
 
     public boolean updateStatus(long itemId, int status) {
