@@ -33,6 +33,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -40,6 +41,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import org.bson.Document;
 
 public class DashboardFrame extends JFrame {
@@ -120,7 +122,13 @@ public class DashboardFrame extends JFrame {
             showCategoryPanel(session);
             return;
         }
-        showPlaceholder(module, "该模块将在后续阶段接入。", session);
+        if ("统计报表".equals(module)) {
+            showStatisticsPanel();
+            return;
+        }
+        if ("系统日志".equals(module)) {
+            showLogPanel(session);
+        }
     }
 
     private void showBusinessPanel(UserSession session) {
@@ -397,6 +405,46 @@ public class DashboardFrame extends JFrame {
         tabs.add(section("分类列表", new JScrollPane(table), isAdmin(session) ? actions : null), "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadCategories(model);
+        refreshMain();
+    }
+
+    private void showStatisticsPanel() {
+        resetMain("统计报表", "查看库存热度、评论评分和操作审计汇总。");
+
+        JTabbedPane tabs = innerTabs();
+
+        BarChartPanel topItems = new BarChartPanel(0, "");
+        tabs.addTab("热门批次", section("热门批次", new JScrollPane(topItems)));
+
+        BarChartPanel ratings = new BarChartPanel(5, " / 5");
+        tabs.addTab("评论评分", section("评论评分", new JScrollPane(ratings)));
+
+        DefaultTableModel audit = tableModel("日志类型", "级别", "数量", "最近时间");
+        JTable auditTable = table(audit);
+        tabs.addTab("操作审计", section("操作审计", new JScrollPane(auditTable)));
+
+        loadStatistics(topItems, ratings, audit);
+        mainPanel.add(tabs, BorderLayout.CENTER);
+        refreshMain();
+    }
+
+    private void showLogPanel(UserSession session) {
+        resetMain("系统日志", isAdmin(session) ? "查看业务操作和登录日志。" : "查看自己的业务操作记录。");
+
+        JTabbedPane tabs = innerTabs();
+
+        DefaultTableModel actions = tableModel("用户", "库存批次", "操作", "时间");
+        JTable actionsTable = table(actions);
+        tabs.addTab("行为日志", section("行为日志", new JScrollPane(actionsTable)));
+
+        DefaultTableModel logins = tableModel("用户", "级别", "消息", "时间");
+        JTable loginTable = table(logins);
+        if (isAdmin(session)) {
+            tabs.addTab("登录日志", section("登录日志", new JScrollPane(loginTable)));
+        }
+
+        loadLogs(actions, logins, session);
+        mainPanel.add(tabs, BorderLayout.CENTER);
         refreshMain();
     }
 
@@ -695,6 +743,67 @@ public class DashboardFrame extends JFrame {
     private JPanel tabs() {
         JPanel tabs = new JPanel(new CardLayout());
         tabs.setBackground(Ui.PAGE);
+        return tabs;
+    }
+
+    private JTabbedPane innerTabs() {
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setUI(new BasicTabbedPaneUI() {
+            @Override
+            protected void installDefaults() {
+                super.installDefaults();
+                tabAreaInsets = new Insets(0, 0, 0, 0);
+                contentBorderInsets = new Insets(0, 0, 0, 0);
+            }
+
+            @Override
+            protected void paintContentBorder(java.awt.Graphics g, int tabPlacement, int selectedIndex) {
+            }
+
+            @Override
+            protected void paintTabBorder(
+                java.awt.Graphics g,
+                int tabPlacement,
+                int tabIndex,
+                int x,
+                int y,
+                int w,
+                int h,
+                boolean isSelected
+            ) {
+            }
+
+            @Override
+            protected void paintTabBackground(
+                java.awt.Graphics g,
+                int tabPlacement,
+                int tabIndex,
+                int x,
+                int y,
+                int w,
+                int h,
+                boolean isSelected
+            ) {
+                g.setColor(isSelected ? Ui.PANEL : Ui.PAGE);
+                g.fillRect(x, y, w, h);
+            }
+
+            @Override
+            protected void paintFocusIndicator(
+                java.awt.Graphics g,
+                int tabPlacement,
+                java.awt.Rectangle[] rects,
+                int tabIndex,
+                java.awt.Rectangle iconRect,
+                java.awt.Rectangle textRect,
+                boolean isSelected
+            ) {
+            }
+        });
+        tabs.setFont(Ui.font(15, Font.BOLD));
+        tabs.setBackground(Ui.PAGE);
+        tabs.setForeground(Ui.TEXT);
+        tabs.setBorder(BorderFactory.createEmptyBorder());
         return tabs;
     }
 
@@ -1660,6 +1769,68 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    private void loadStatistics(BarChartPanel topItems, BarChartPanel ratings, DefaultTableModel audit) {
+        try {
+            Map<Long, String> items = itemNames();
+            List<ChartRow> topRows = new ArrayList<>();
+            for (Document row : businessService.topActionItems(10)) {
+                Number count = row.get("action_count", Number.class);
+                topRows.add(new ChartRow(itemName(items, row.get("item_id")), count == null ? 0 : count.doubleValue()));
+            }
+            topItems.setRows(topRows);
+
+            List<ChartRow> ratingRows = new ArrayList<>();
+            for (Document row : businessService.commentRatingSummary()) {
+                Number averageRating = row.get("average_rating", Number.class);
+                Number commentCount = row.get("comment_count", Number.class);
+                String label = itemName(items, row.get("item_id")) + "（" + (commentCount == null ? 0 : commentCount.intValue()) + " 条）";
+                ratingRows.add(new ChartRow(label, averageRating == null ? 0 : averageRating.doubleValue()));
+            }
+            ratings.setRows(ratingRows);
+
+            audit.setRowCount(0);
+            for (Document row : businessService.auditSummary()) {
+                audit.addRow(new Object[] {
+                    row.get("log_type"),
+                    row.get("log_level"),
+                    row.get("log_count"),
+                    dateText(row.getDate("last_log_at"))
+                });
+            }
+        } catch (RuntimeException ex) {
+            warn("统计数据加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void loadLogs(DefaultTableModel actions, DefaultTableModel logins, UserSession session) {
+        try {
+            Map<Long, String> items = itemNames();
+            actions.setRowCount(0);
+            for (Document row : businessService.findActionLogs(session.userId(), isAdmin(session), 100)) {
+                actions.addRow(new Object[] {
+                    actionUser(row, session),
+                    itemName(items, row.get("item_id")),
+                    actionLabel(row.getString("action_type")),
+                    dateText(row.getDate("created_at"))
+                });
+            }
+
+            logins.setRowCount(0);
+            if (isAdmin(session)) {
+                for (Document row : businessService.findSystemLogs("LOGIN", 100)) {
+                    logins.addRow(new Object[] {
+                        logUser(row.getString("user_id")),
+                        row.get("log_level"),
+                        row.get("message"),
+                        dateText(row.getDate("timestamp"))
+                    });
+                }
+            }
+        } catch (RuntimeException ex) {
+            warn("日志加载失败，请检查数据库连接。");
+        }
+    }
+
     private Map<Long, String> categoryNames() {
         return categoryNames(businessService.findCategories());
     }
@@ -1678,6 +1849,46 @@ public class DashboardFrame extends JFrame {
             names.put(((Number) row.get("item_id")).longValue(), String.valueOf(row.get("title")));
         }
         return names;
+    }
+
+    private String itemName(Map<Long, String> items, Object itemId) {
+        if (itemId == null || "NONE".equals(String.valueOf(itemId))) {
+            return "无关联批次";
+        }
+        try {
+            long id = Long.parseLong(String.valueOf(itemId));
+            return items.getOrDefault(id, "库存批次已删除");
+        } catch (NumberFormatException ex) {
+            return String.valueOf(itemId);
+        }
+    }
+
+    private String actionUser(Document row, UserSession session) {
+        String userId = row.getString("user_id");
+        if (String.valueOf(session.userId()).equals(userId)) {
+            return session.username();
+        }
+        return logUser(userId);
+    }
+
+    private String logUser(String userId) {
+        try {
+            return userId == null || "SYSTEM".equals(userId) ? "系统" : businessService.findUsername(Long.parseLong(userId));
+        } catch (RuntimeException ex) {
+            return userId == null ? "" : userId;
+        }
+    }
+
+    private String actionLabel(String actionType) {
+        return switch (actionType == null ? "" : actionType) {
+            case "CREATE_ORDER" -> "创建记录";
+            case "UPDATE_ORDER" -> "编辑记录";
+            case "UPDATE_ORDER_STATUS" -> "更新状态";
+            case "DELETE_ORDER" -> "删除记录";
+            case "CREATE_COMMENT" -> "发表评论";
+            case "DELETE_COMMENT" -> "删除评论";
+            default -> actionType == null ? "" : actionType;
+        };
     }
 
     private Option selected(JComboBox<Option> box) {
@@ -1724,6 +1935,10 @@ public class DashboardFrame extends JFrame {
         return amount instanceof BigDecimal value ? value.toPlainString() : String.valueOf(amount);
     }
 
+    private String numberText(Object value) {
+        return value instanceof Number number ? String.format("%.2f", number.doubleValue()) : String.valueOf(value);
+    }
+
     private String orderStatus(Object status) {
         int value = ((Number) status).intValue();
         return switch (value) {
@@ -1762,6 +1977,73 @@ public class DashboardFrame extends JFrame {
             button.setBackground(active ? Ui.PRIMARY : new Color(61, 65, 75));
             button.setOpaque(true);
             button.setContentAreaFilled(true);
+        }
+    }
+
+    private record ChartRow(String label, double value) {
+    }
+
+    private static class BarChartPanel extends JPanel {
+        private List<ChartRow> rows = List.of();
+        private final double fixedMax;
+        private final String valueSuffix;
+
+        BarChartPanel(double fixedMax, String valueSuffix) {
+            this.fixedMax = fixedMax;
+            this.valueSuffix = valueSuffix;
+            setBackground(Ui.PANEL);
+            setPreferredSize(new Dimension(720, 420));
+        }
+
+        void setRows(List<ChartRow> rows) {
+            this.rows = rows == null ? List.of() : rows;
+            setPreferredSize(new Dimension(720, Math.max(360, this.rows.size() * 48 + 48)));
+            revalidate();
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics graphics) {
+            super.paintComponent(graphics);
+            java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setFont(Ui.font(14, Font.BOLD));
+            if (rows.isEmpty()) {
+                g.setColor(new Color(91, 94, 102));
+                g.drawString("暂无统计数据", 24, 42);
+                g.dispose();
+                return;
+            }
+
+            int labelWidth = Math.min(300, Math.max(180, getWidth() / 3));
+            int barX = labelWidth + 32;
+            int barMaxWidth = Math.max(80, getWidth() - barX - 72);
+            int y = 32;
+            double max = fixedMax > 0 ? fixedMax : rows.stream().mapToDouble(ChartRow::value).max().orElse(1);
+            for (ChartRow row : rows) {
+                int barWidth = Math.max(4, (int) (barMaxWidth * (row.value() / max)));
+                g.setColor(Ui.TEXT);
+                g.drawString(ellipsis(row.label(), 18), 24, y + 18);
+                g.setColor(new Color(238, 235, 229));
+                g.fillRoundRect(barX, y, barMaxWidth, 20, 6, 6);
+                g.setColor(Ui.PRIMARY);
+                g.fillRoundRect(barX, y, barWidth, 20, 6, 6);
+                g.setColor(Ui.TEXT);
+                g.drawString(valueText(row.value()) + valueSuffix, barX + barMaxWidth + 14, y + 16);
+                y += 48;
+            }
+            g.dispose();
+        }
+
+        private String valueText(double value) {
+            return value == Math.rint(value) ? String.valueOf((int) value) : String.format("%.1f", value);
+        }
+
+        private String ellipsis(String text, int maxLength) {
+            if (text == null || text.length() <= maxLength) {
+                return text == null ? "" : text;
+            }
+            return text.substring(0, maxLength) + "...";
         }
     }
 

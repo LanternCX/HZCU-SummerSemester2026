@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.blooddonation.dao.mongo.DetailDAO;
 import com.blooddonation.dao.mongo.CommentDAO;
+import com.blooddonation.dao.mongo.LogDAO;
+import com.blooddonation.dao.mongo.SystemLogDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
@@ -237,8 +239,9 @@ class BusinessServiceTest {
         FakeItemDAO items = new FakeItemDAO();
         items.item = item(3L, new BigDecimal("10.00"), 1);
         FakeOrderDAO orders = new FakeOrderDAO();
+        FakeLogDAO logs = new FakeLogDAO();
 
-        BusinessService.BusinessResult result = new BusinessService(items, new FakeDetailDAO(), orders)
+        BusinessService.BusinessResult result = new BusinessService(items, new FakeCategoryDAO(), new FakeDetailDAO(), new FakeCommentDAO(), orders, new FakeUserDAO(), logs, new FakeSystemLogDAO())
             .createOrder(2L, 3L, new BigDecimal("8.00"));
 
         assertTrue(result.success());
@@ -246,6 +249,9 @@ class BusinessServiceTest {
         assertEquals(2L, orders.userId);
         assertEquals(3L, orders.itemId);
         assertEquals(new BigDecimal("8.00"), orders.amount);
+        assertEquals("2", logs.userId);
+        assertEquals("3", logs.itemId);
+        assertEquals("CREATE_ORDER", logs.actionType);
     }
 
     @Test
@@ -390,6 +396,31 @@ class BusinessServiceTest {
         assertEquals(21L, orders.deletedOrderId);
     }
 
+    @Test
+    void statisticsExposeMongoAggregates() {
+        FakeLogDAO logs = new FakeLogDAO();
+        logs.topItems = List.of(new Document("item_id", "3").append("action_count", 7));
+        FakeCommentDAO comments = new FakeCommentDAO();
+        comments.ratingSummary = List.of(new Document("item_id", "3").append("comment_count", 2).append("average_rating", 4.5));
+        FakeSystemLogDAO systemLogs = new FakeSystemLogDAO();
+        systemLogs.auditSummary = List.of(new Document("log_type", "LOGIN").append("log_level", "INFO").append("log_count", 3));
+
+        BusinessService service = new BusinessService(
+            new FakeItemDAO(),
+            new FakeCategoryDAO(),
+            new FakeDetailDAO(),
+            comments,
+            new FakeOrderDAO(),
+            new FakeUserDAO(),
+            logs,
+            systemLogs
+        );
+
+        assertEquals(7, service.topActionItems(5).get(0).getInteger("action_count"));
+        assertEquals(4.5, service.commentRatingSummary().get(0).getDouble("average_rating"));
+        assertEquals(3, service.auditSummary().get(0).getInteger("log_count"));
+    }
+
     private static Map<String, Object> item(long id, BigDecimal amount, int status) {
         Map<String, Object> row = new HashMap<>();
         row.put("item_id", id);
@@ -526,6 +557,7 @@ class BusinessServiceTest {
         private String deletedOwnId;
         private String deletedOwnUserId;
         private boolean deleteSucceeds;
+        private List<Document> ratingSummary = List.of();
 
         @Override
         public void createComment(String userId, String itemId, String content, int rating, List<String> tags) {
@@ -547,6 +579,39 @@ class BusinessServiceTest {
             deletedOwnId = commentId;
             deletedOwnUserId = userId;
             return deleteSucceeds;
+        }
+
+        @Override
+        public List<Document> ratingSummary() {
+            return ratingSummary;
+        }
+    }
+
+    private static class FakeLogDAO extends LogDAO {
+        private String userId;
+        private String itemId;
+        private String actionType;
+        private List<Document> topItems = List.of();
+
+        @Override
+        public void insertActionLog(String userId, String itemId, String actionType, int durationSeconds, Document clientInfo) {
+            this.userId = userId;
+            this.itemId = itemId;
+            this.actionType = actionType;
+        }
+
+        @Override
+        public List<Document> topItems(int limit) {
+            return topItems;
+        }
+    }
+
+    private static class FakeSystemLogDAO extends SystemLogDAO {
+        private List<Document> auditSummary = List.of();
+
+        @Override
+        public List<Document> auditSummary() {
+            return auditSummary;
         }
     }
 

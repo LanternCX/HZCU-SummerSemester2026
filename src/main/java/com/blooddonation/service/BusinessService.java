@@ -2,6 +2,8 @@ package com.blooddonation.service;
 
 import com.blooddonation.dao.mongo.DetailDAO;
 import com.blooddonation.dao.mongo.CommentDAO;
+import com.blooddonation.dao.mongo.LogDAO;
+import com.blooddonation.dao.mongo.SystemLogDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
@@ -20,9 +22,11 @@ public class BusinessService {
     private final CommentDAO commentDAO;
     private final OrderDAO orderDAO;
     private final UserDAO userDAO;
+    private final LogDAO logDAO;
+    private final SystemLogDAO systemLogDAO;
 
     public BusinessService() {
-        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO());
+        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO(), new LogDAO(), new SystemLogDAO());
     }
 
     BusinessService(ItemDAO itemDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
@@ -38,12 +42,27 @@ public class BusinessService {
     }
 
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO, UserDAO userDAO) {
+        this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, silentLogDAO(), silentSystemLogDAO());
+    }
+
+    BusinessService(
+        ItemDAO itemDAO,
+        CategoryDAO categoryDAO,
+        DetailDAO detailDAO,
+        CommentDAO commentDAO,
+        OrderDAO orderDAO,
+        UserDAO userDAO,
+        LogDAO logDAO,
+        SystemLogDAO systemLogDAO
+    ) {
         this.itemDAO = itemDAO;
         this.categoryDAO = categoryDAO;
         this.detailDAO = detailDAO;
         this.commentDAO = commentDAO;
         this.orderDAO = orderDAO;
         this.userDAO = userDAO;
+        this.logDAO = logDAO;
+        this.systemLogDAO = systemLogDAO;
     }
 
     public List<Map<String, Object>> findCategories() {
@@ -206,6 +225,7 @@ public class BusinessService {
         }
 
         commentDAO.createComment(String.valueOf(userId), String.valueOf(itemId), content.trim(), rating, tags == null ? List.of() : tags);
+        logAction(userId, itemId, "CREATE_COMMENT");
         return BusinessResult.ok(itemId, "评论已发布");
     }
 
@@ -216,6 +236,9 @@ public class BusinessService {
         boolean deleted = admin
             ? commentDAO.deleteById(commentId)
             : commentDAO.deleteByIdAndUser(commentId, String.valueOf(userId));
+        if (deleted) {
+            logAction(userId, 0L, "DELETE_COMMENT");
+        }
         return deleted
             ? BusinessResult.ok(0L, "评论已删除")
             : BusinessResult.fail("评论不存在或无权删除");
@@ -250,6 +273,7 @@ public class BusinessService {
         }
 
         long orderId = orderDAO.createOrder(userId, itemId, amount);
+        logAction(userId, itemId, "CREATE_ORDER");
         return BusinessResult.ok(orderId, "记录创建成功");
     }
 
@@ -283,9 +307,11 @@ public class BusinessService {
             return BusinessResult.fail("数量不足");
         }
 
-        return orderDAO.updatePendingOrder(userId, orderId, itemId, amount)
-            ? BusinessResult.ok(orderId, "保存成功")
-            : BusinessResult.fail("记录不存在或不可编辑");
+        if (!orderDAO.updatePendingOrder(userId, orderId, itemId, amount)) {
+            return BusinessResult.fail("记录不存在或不可编辑");
+        }
+        logAction(userId, itemId, "UPDATE_ORDER");
+        return BusinessResult.ok(orderId, "保存成功");
     }
 
     public BusinessResult updateOrderStatus(long orderId, int status) {
@@ -293,27 +319,79 @@ public class BusinessService {
             return BusinessResult.fail("请选择有效记录状态");
         }
         boolean updated = status == 1 ? orderDAO.completeOrder(orderId) : orderDAO.updateStatus(orderId, status);
-        return updated
-            ? BusinessResult.ok(orderId, "状态更新成功")
-            : BusinessResult.fail("记录不存在");
+        if (!updated) {
+            return BusinessResult.fail("记录不存在");
+        }
+        logAction(0L, 0L, "UPDATE_ORDER_STATUS");
+        return BusinessResult.ok(orderId, "状态更新成功");
     }
 
     public BusinessResult deleteOrder(long orderId) {
         if (orderId <= 0) {
             return BusinessResult.fail("请选择有效记录");
         }
-        return orderDAO.deleteById(orderId)
-            ? BusinessResult.ok(orderId, "删除成功")
-            : BusinessResult.fail("记录不存在");
+        if (!orderDAO.deleteById(orderId)) {
+            return BusinessResult.fail("记录不存在");
+        }
+        logAction(0L, 0L, "DELETE_ORDER");
+        return BusinessResult.ok(orderId, "删除成功");
     }
 
     public BusinessResult deleteOwnOrder(long userId, long orderId) {
         if (userId <= 0 || orderId <= 0) {
             return BusinessResult.fail("请选择有效用户和记录");
         }
-        return orderDAO.deletePendingByUser(userId, orderId)
-            ? BusinessResult.ok(orderId, "删除成功")
-            : BusinessResult.fail("记录不存在或不可删除");
+        if (!orderDAO.deletePendingByUser(userId, orderId)) {
+            return BusinessResult.fail("记录不存在或不可删除");
+        }
+        logAction(userId, 0L, "DELETE_ORDER");
+        return BusinessResult.ok(orderId, "删除成功");
+    }
+
+    public List<Document> topActionItems(int limit) {
+        return logDAO.topItems(limit);
+    }
+
+    public List<Document> commentRatingSummary() {
+        return commentDAO.ratingSummary();
+    }
+
+    public List<Document> auditSummary() {
+        return systemLogDAO.auditSummary();
+    }
+
+    public List<Document> findSystemLogs(String logType, int limit) {
+        return systemLogDAO.findByType(logType, limit);
+    }
+
+    public List<Document> findUserActionLogs(long userId, int limit) {
+        return userId <= 0 ? List.of() : logDAO.findByUserId(String.valueOf(userId), limit);
+    }
+
+    public List<Document> findActionLogs(long userId, boolean admin, int limit) {
+        return admin ? logDAO.findRecent(limit) : findUserActionLogs(userId, limit);
+    }
+
+    private void logAction(long userId, long itemId, String actionType) {
+        logDAO.insertActionLog(
+            userId <= 0 ? "SYSTEM" : String.valueOf(userId),
+            itemId <= 0 ? "NONE" : String.valueOf(itemId),
+            actionType,
+            0,
+            new Document()
+        );
+    }
+
+    private static LogDAO silentLogDAO() {
+        return new LogDAO() {
+            @Override
+            public void insertActionLog(String userId, String itemId, String actionType, int durationSeconds, Document clientInfo) {
+            }
+        };
+    }
+
+    private static SystemLogDAO silentSystemLogDAO() {
+        return new SystemLogDAO();
     }
 
     private String clean(String value) {

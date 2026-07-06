@@ -32,6 +32,14 @@ public class LogDAO extends MongoBaseDAO {
             .into(new ArrayList<>());
     }
 
+    public List<Document> findRecent(int limit) {
+        return collection()
+            .find()
+            .sort(Sorts.descending("created_at"))
+            .limit(limit)
+            .into(new ArrayList<>());
+    }
+
     public List<Document> topItems(int limit) {
         List<Document> pipeline = List.of(
             new Document("$group", new Document("_id", "$item_id").append("action_count", new Document("$sum", 1))),
