@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1150" height="720" viewBox="0 0 1150 720">
+<style>
+text{font-family:Arial,"Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#172033}
+.title{font-size:28px;font-weight:700}.h{font-size:20px;font-weight:700}.t{font-size:16px}.s{font-size:14px}.mono{font-family:Menlo,Consolas,monospace;font-size:14px}
+.blue{fill:#e8f0ff;stroke:#4978c7;stroke-width:2}.green{fill:#e9f8ef;stroke:#3c8a5a;stroke-width:2}.orange{fill:#fff3e3;stroke:#c97820;stroke-width:2}.purple{fill:#f3edff;stroke:#7855b5;stroke-width:2}.gray{fill:#eef1f5;stroke:#7b879a;stroke-width:2}
+.rel{fill:#fff7ed;stroke:#c97820;stroke-width:2}.line{stroke:#596579;stroke-width:2;fill:none}
+</style>
+<rect width="100%" height="100%" fill="#ffffff"/>
+
+<text x="575" y="44" text-anchor="middle" class="title">MySQL E-R 图</text>
+
+<rect x="70" y="100" width="230" height="155" rx="12" class="blue"/>
+<text x="185" y="136" text-anchor="middle" class="h">users</text>
+<text x="98" y="170" class="mono">PK  user_id</text>
+<text x="98" y="195" class="mono">UK  username</text>
+<text x="98" y="220" class="mono">role / status</text>
+
+<rect x="70" y="500" width="230" height="155" rx="12" class="purple"/>
+<text x="185" y="536" text-anchor="middle" class="h">profiles</text>
+<text x="98" y="570" class="mono">PK  profile_id</text>
+<text x="98" y="595" class="mono">FK  user_id</text>
+<text x="98" y="620" class="mono">real_name / id_card</text>
+
+<rect x="405" y="500" width="230" height="155" rx="12" class="green"/>
+<text x="520" y="536" text-anchor="middle" class="h">categories</text>
+<text x="433" y="570" class="mono">PK  category_id</text>
+<text x="433" y="595" class="mono">FK  parent_id</text>
+<text x="433" y="620" class="mono">name</text>
+
+<rect x="850" y="100" width="230" height="155" rx="12" class="gray"/>
+<text x="965" y="136" text-anchor="middle" class="h">orders</text>
+<text x="878" y="170" class="mono">PK  order_id</text>
+<text x="878" y="195" class="mono">FK  user_id</text>
+<text x="878" y="220" class="mono">FK  item_id</text>
+<text x="878" y="245" class="mono">amount / status</text>
+
+<rect x="850" y="500" width="230" height="155" rx="12" class="orange"/>
+<text x="965" y="536" text-anchor="middle" class="h">items</text>
+<text x="878" y="570" class="mono">PK  item_id</text>
+<text x="878" y="595" class="mono">FK  category_id</text>
+<text x="878" y="620" class="mono">amount / status</text>
+
+<polygon points="185,330 245,375 185,420 125,375" class="rel"/>
+<text x="185" y="381" text-anchor="middle" class="t">拥有档案</text>
+<path d="M185 255 V330" class="line"/>
+<path d="M185 420 V500" class="line"/>
+<text x="200" y="300" class="s">1</text>
+<text x="200" y="466" class="s">1</text>
+
+<polygon points="575,125 645,175 575,225 505,175" class="rel"/>
+<text x="575" y="181" text-anchor="middle" class="t">提交</text>
+<path d="M300 175 H505" class="line"/>
+<path d="M645 175 H850" class="line"/>
+<text x="315" y="165" class="s">1</text>
+<text x="830" y="165" class="s">N</text>
+
+<polygon points="965,330 1035,375 965,420 895,375" class="rel"/>
+<text x="965" y="381" text-anchor="middle" class="t">使用库存</text>
+<path d="M965 255 V330" class="line"/>
+<path d="M965 420 V500" class="line"/>
+<text x="980" y="300" class="s">N</text>
+<text x="980" y="466" class="s">1</text>
+
+<polygon points="755,525 820,575 755,625 690,575" class="rel"/>
+<text x="755" y="581" text-anchor="middle" class="t">归类</text>
+<path d="M635 575 H690" class="line"/>
+<path d="M820 575 H850" class="line"/>
+<text x="645" y="565" class="s">1</text>
+<text x="835" y="540" class="s">N</text>
+
+<polygon points="520,320 590,370 520,420 450,370" class="rel"/>
+<text x="520" y="376" text-anchor="middle" class="t">包含</text>
+<path d="M475 500 L450 370" class="line"/>
+<path d="M565 500 L590 370" class="line"/>
+<text x="440" y="448" class="s">N</text>
+<text x="590" y="448" class="s">1</text>
+
+</svg>
