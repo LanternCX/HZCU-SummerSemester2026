@@ -31,6 +31,88 @@ class BusinessServiceTest {
     }
 
     @Test
+    void createCategoryTrimsNameAndStoresParent() {
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(Map.of("category_id", 1L, "name", "血型"));
+
+        BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), categories, new FakeDetailDAO(), new FakeOrderDAO())
+            .createCategory(" A型 ", 1L);
+
+        assertTrue(result.success());
+        assertEquals(31L, result.id());
+        assertEquals("A型", categories.createdName);
+        assertEquals(1L, categories.createdParentId);
+    }
+
+    @Test
+    void updateCategoryRejectsSelfParent() {
+        BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), new FakeCategoryDAO(), new FakeDetailDAO(), new FakeOrderDAO())
+            .updateCategory(3L, "A型", 3L);
+
+        assertFalse(result.success());
+        assertEquals("父分类不能选择自己", result.message());
+    }
+
+    @Test
+    void updateCategoryRejectsChildParent() {
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(
+            Map.of("category_id", 1L, "name", "血型"),
+            Map.of("category_id", 2L, "name", "A型", "parent_id", 1L)
+        );
+
+        BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), categories, new FakeDetailDAO(), new FakeOrderDAO())
+            .updateCategory(1L, "血型", 2L);
+
+        assertFalse(result.success());
+        assertEquals("父分类不能选择子分类", result.message());
+    }
+
+    @Test
+    void deleteCategoryDeletesSelectedCategory() {
+        FakeItemDAO items = new FakeItemDAO();
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(Map.of("category_id", 3L, "name", "A型"));
+
+        BusinessService.BusinessResult result = new BusinessService(items, categories, new FakeDetailDAO(), new FakeOrderDAO())
+            .deleteCategory(3L);
+
+        assertTrue(result.success());
+        assertEquals(3L, categories.deletedCategoryId);
+    }
+
+    @Test
+    void deleteCategoryRejectsCategoryWithChildren() {
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(
+            Map.of("category_id", 3L, "name", "血型"),
+            Map.of("category_id", 4L, "name", "A型", "parent_id", 3L)
+        );
+
+        BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), categories, new FakeDetailDAO(), new FakeOrderDAO())
+            .deleteCategory(3L);
+
+        assertFalse(result.success());
+        assertEquals("分类下还有子分类，不能删除", result.message());
+        assertEquals(0L, categories.deletedCategoryId);
+    }
+
+    @Test
+    void deleteCategoryRejectsCategoryUsedByInventory() {
+        FakeItemDAO items = new FakeItemDAO();
+        items.rows = List.of(Map.of("item_id", 9L, "category_id", 3L));
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(Map.of("category_id", 3L, "name", "A型"));
+
+        BusinessService.BusinessResult result = new BusinessService(items, categories, new FakeDetailDAO(), new FakeOrderDAO())
+            .deleteCategory(3L);
+
+        assertFalse(result.success());
+        assertEquals("分类已被库存使用，不能删除", result.message());
+        assertEquals(0L, categories.deletedCategoryId);
+    }
+
+    @Test
     void createItemStoresMysqlRowAndMongoDetail() {
         FakeItemDAO items = new FakeItemDAO();
         FakeDetailDAO details = new FakeDetailDAO();
@@ -287,6 +369,13 @@ class BusinessServiceTest {
         }
 
         @Override
+        public List<Map<String, Object>> findByCategory(long categoryId) {
+            return rows.stream()
+                .filter(row -> row.get("category_id") != null && ((Number) row.get("category_id")).longValue() == categoryId)
+                .toList();
+        }
+
+        @Override
         public boolean update(long itemId, String title, long categoryId, BigDecimal amount, int status) {
             updatedItemId = itemId;
             updatedTitle = title;
@@ -302,10 +391,45 @@ class BusinessServiceTest {
 
     private static class FakeCategoryDAO extends CategoryDAO {
         private List<Map<String, Object>> rows = List.of();
+        private String createdName;
+        private Long createdParentId;
+        private long deletedCategoryId;
 
         @Override
         public List<Map<String, Object>> findAll() {
             return rows;
+        }
+
+        @Override
+        public long create(String name, Long parentId) {
+            createdName = name;
+            createdParentId = parentId;
+            return 31L;
+        }
+
+        @Override
+        public Optional<Map<String, Object>> findById(long categoryId) {
+            return rows.stream()
+                .filter(row -> ((Number) row.get("category_id")).longValue() == categoryId)
+                .findFirst();
+        }
+
+        @Override
+        public List<Map<String, Object>> findChildren(Long parentId) {
+            return rows.stream()
+                .filter(row -> row.get("parent_id") != null && ((Number) row.get("parent_id")).longValue() == parentId)
+                .toList();
+        }
+
+        @Override
+        public boolean update(long categoryId, String name, Long parentId) {
+            return true;
+        }
+
+        @Override
+        public boolean deleteById(long categoryId) {
+            deletedCategoryId = categoryId;
+            return true;
         }
     }
 

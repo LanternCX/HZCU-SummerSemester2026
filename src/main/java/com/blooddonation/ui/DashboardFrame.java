@@ -113,6 +113,10 @@ public class DashboardFrame extends JFrame {
             showOrderPanel(session);
             return;
         }
+        if ("分类管理".equals(module)) {
+            showCategoryPanel(session);
+            return;
+        }
         showPlaceholder(module, "该模块将在后续阶段接入。", session);
     }
 
@@ -336,6 +340,184 @@ public class DashboardFrame extends JFrame {
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadOrders(model, session);
         refreshMain();
+    }
+
+    private void showCategoryPanel(UserSession session) {
+        resetMain("分类管理", "维护血液分类，双击表格行打开详情。");
+
+        DefaultTableModel model = tableModel("category_id", "分类名称", "父分类", "层级");
+        JTable table = table(model);
+        hideFirstColumn(table);
+        setColumnWidths(table, 0, 300, 220, 120);
+
+        JPanel tabs = tabs();
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2) {
+                    Long categoryId = selectedId(table);
+                    if (categoryId != null) {
+                        openCategoryDetailTab(tabs, table, categoryId, session, model);
+                    }
+                }
+            }
+        });
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        if (isAdmin(session)) {
+            JButton addButton = new JButton("新增");
+            Ui.primaryButton(addButton, 128);
+            addButton.addActionListener(event -> showCreateCategoryDialog(model));
+            actions.add(addButton);
+
+            JButton deleteButton = new JButton("删除");
+            Ui.primaryButton(deleteButton, 128);
+            deleteButton.addActionListener(event -> {
+                Long categoryId = selectedId(table);
+                if (categoryId == null) {
+                    warn("请先在表格中选择分类。");
+                    return;
+                }
+                if (confirm("确认删除选中的分类？")) {
+                    BusinessResult result = businessService.deleteCategory(categoryId);
+                    showResult(result);
+                    if (result.success()) {
+                        loadCategories(model);
+                        closeDetailTab(tabs, "category:" + categoryId);
+                    }
+                }
+            });
+            actions.add(deleteButton);
+        }
+
+        tabs.add(section("分类列表", new JScrollPane(table), isAdmin(session) ? actions : null), "list");
+        mainPanel.add(tabs, BorderLayout.CENTER);
+        loadCategories(model);
+        refreshMain();
+    }
+
+    private void showCreateCategoryDialog(DefaultTableModel model) {
+        JDialog dialog = new JDialog(this, "新增分类", true);
+        JTextField nameField = field();
+        JComboBox<Option> parentBox = new JComboBox<>();
+        loadParentCategories(parentBox, null);
+
+        JPanel form = categoryForm(nameField, parentBox);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("保存");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            try {
+                BusinessResult result = businessService.createCategory(nameField.getText(), selectedParentId(parentBox));
+                showResult(result);
+                if (result.success()) {
+                    loadCategories(model);
+                    dialog.dispose();
+                }
+            } catch (RuntimeException ex) {
+                warn("保存失败，分类名称可能重复或数据库连接异常。");
+            }
+        });
+
+        dialog.setContentPane(dialogContent("新增分类", form, cancelButton, saveButton));
+        dialog.getRootPane().setDefaultButton(saveButton);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(620, 340));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void showCreateChildCategoryDialog(long parentId, DefaultTableModel model, Runnable onSaved) {
+        JDialog dialog = new JDialog(this, "新增子分类", true);
+        JTextField nameField = field();
+
+        JPanel form = formPanel();
+        form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
+        addFormField(form, 0, 0, 2, "子分类名称", nameField);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("保存");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            try {
+                BusinessResult result = businessService.createCategory(nameField.getText(), parentId);
+                showResult(result);
+                if (result.success()) {
+                    loadCategories(model);
+                    onSaved.run();
+                    dialog.dispose();
+                }
+            } catch (RuntimeException ex) {
+                warn("保存失败，分类名称可能重复或数据库连接异常。");
+            }
+        });
+
+        dialog.setContentPane(dialogContent("新增子分类", form, cancelButton, saveButton));
+        dialog.getRootPane().setDefaultButton(saveButton);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(620, 280));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private void showEditCategoryDialog(long categoryId, DefaultTableModel model, Runnable onSaved) {
+        Map<String, Object> category = findCategoryRow(categoryId);
+        if (category == null) {
+            warn("分类不存在。");
+            return;
+        }
+
+        JDialog dialog = new JDialog(this, "编辑分类", true);
+        JTextField nameField = field();
+        nameField.setText(String.valueOf(category.get("name")));
+        JComboBox<Option> parentBox = new JComboBox<>();
+        loadParentCategories(parentBox, categoryId);
+        Object parentId = category.get("parent_id");
+        if (parentId != null) {
+            selectOption(parentBox, ((Number) parentId).longValue());
+        }
+
+        JPanel form = categoryForm(nameField, parentBox);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("保存");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            try {
+                BusinessResult result = businessService.updateCategory(categoryId, nameField.getText(), selectedParentId(parentBox));
+                showResult(result);
+                if (result.success()) {
+                    loadCategories(model);
+                    onSaved.run();
+                    dialog.dispose();
+                }
+            } catch (RuntimeException ex) {
+                warn("保存失败，分类名称可能重复或数据库连接异常。");
+            }
+        });
+
+        dialog.setContentPane(dialogContent("编辑分类", form, cancelButton, saveButton));
+        dialog.getRootPane().setDefaultButton(saveButton);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(620, 340));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private JPanel categoryForm(JTextField nameField, JComboBox<Option> parentBox) {
+        JPanel form = formPanel();
+        form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
+        addFormField(form, 0, 0, 2, "分类名称", nameField);
+        addFormField(form, 1, 0, 2, "父分类", parentBox);
+        return form;
     }
 
     private void showCreateOrderDialog(UserSession session, DefaultTableModel model) {
@@ -611,6 +793,56 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("记录", table, orderId, 1), detail, key);
     }
 
+    private void openCategoryDetailTab(
+        JPanel tabs,
+        JTable table,
+        long categoryId,
+        UserSession session,
+        DefaultTableModel model
+    ) {
+        String key = "category:" + categoryId;
+        if (selectDetailTab(tabs, key)) {
+            return;
+        }
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        JButton closeButton = new JButton("关闭");
+        Ui.textButton(closeButton);
+        closeButton.addActionListener(event -> closeDetailTab(tabs, key));
+        actions.add(closeButton);
+
+        if (isAdmin(session)) {
+            JButton editButton = new JButton("编辑");
+            Ui.primaryButton(editButton, 112);
+            editButton.addActionListener(event -> showEditCategoryDialog(categoryId, model, () -> {
+                closeDetailTab(tabs, key);
+                openCategoryDetailTab(tabs, table, categoryId, session, model);
+            }));
+            actions.add(editButton);
+
+            JButton deleteButton = new JButton("删除");
+            Ui.primaryButton(deleteButton, 112);
+            deleteButton.addActionListener(event -> {
+                if (confirm("确认删除该分类？")) {
+                    BusinessResult result = businessService.deleteCategory(categoryId);
+                    showResult(result);
+                    if (result.success()) {
+                        loadCategories(model);
+                        closeDetailTab(tabs, key);
+                    }
+                }
+            });
+            actions.add(deleteButton);
+        }
+
+        JPanel detail = detailPage("分类详情", categoryDetailBody(model, categoryId, session, () -> {
+            closeDetailTab(tabs, key);
+            openCategoryDetailTab(tabs, table, categoryId, session, model);
+        }), actions);
+        addDetailTab(tabs, detailTabTitle("分类", table, categoryId, 1), detail, key);
+    }
+
     private void addOrderDeleteButton(
         JPanel actions,
         JPanel tabs,
@@ -712,6 +944,86 @@ public class DashboardFrame extends JFrame {
         }
         body.add(emptyDetail("该记录未在当前列表中。"), BorderLayout.CENTER);
         return body;
+    }
+
+    private JPanel categoryDetailBody(DefaultTableModel model, long categoryId, UserSession session, Runnable onChanged) {
+        JPanel body = detailBody();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (((Number) model.getValueAt(i, 0)).longValue() == categoryId) {
+                JPanel grid = detailGrid();
+                addInfo(grid, 0, 0, 2, "分类名称", model.getValueAt(i, 1));
+                addInfo(grid, 1, 0, 1, "父分类", model.getValueAt(i, 2));
+                addInfo(grid, 1, 1, 1, "层级", model.getValueAt(i, 3));
+                body.add(grid, BorderLayout.NORTH);
+                body.add(childCategoriesPanel(categoryId, session, model, onChanged), BorderLayout.CENTER);
+                return body;
+            }
+        }
+        body.add(emptyDetail("该分类未在当前列表中。"), BorderLayout.CENTER);
+        return body;
+    }
+
+    private JPanel childCategoriesPanel(long parentId, UserSession session, DefaultTableModel mainModel, Runnable onChanged) {
+        DefaultTableModel childModel = tableModel("category_id", "子分类名称");
+        JTable childTable = table(childModel);
+        hideFirstColumn(childTable);
+        setColumnWidths(childTable, 0, 360);
+        loadChildCategories(childModel, parentId);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        if (isAdmin(session)) {
+            JButton addButton = new JButton("新增子分类");
+            Ui.primaryButton(addButton, 128);
+            addButton.addActionListener(event -> showCreateChildCategoryDialog(parentId, mainModel, onChanged));
+            actions.add(addButton);
+
+            JButton editButton = new JButton("编辑");
+            Ui.primaryButton(editButton, 112);
+            editButton.addActionListener(event -> {
+                Long childId = selectedId(childTable);
+                if (childId == null) {
+                    warn("请先选择子分类。");
+                    return;
+                }
+                showEditCategoryDialog(childId, mainModel, onChanged);
+            });
+            actions.add(editButton);
+
+            JButton deleteButton = new JButton("删除");
+            Ui.primaryButton(deleteButton, 112);
+            deleteButton.addActionListener(event -> {
+                Long childId = selectedId(childTable);
+                if (childId == null) {
+                    warn("请先选择子分类。");
+                    return;
+                }
+                if (confirm("确认删除选中的子分类？")) {
+                    BusinessResult result = businessService.deleteCategory(childId);
+                    showResult(result);
+                    if (result.success()) {
+                        loadCategories(mainModel);
+                        onChanged.run();
+                    }
+                }
+            });
+            actions.add(deleteButton);
+        }
+
+        JPanel panel = new JPanel(new BorderLayout(0, 10));
+        panel.setBackground(Ui.PANEL);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(Ui.PANEL);
+        JLabel title = new JLabel("子分类");
+        title.setForeground(Ui.TEXT);
+        title.setFont(Ui.font(16, Font.BOLD));
+        header.add(title, BorderLayout.WEST);
+        if (actions.getComponentCount() > 0) {
+            header.add(actions, BorderLayout.EAST);
+        }
+        panel.add(header, BorderLayout.NORTH);
+        panel.add(new JScrollPane(childTable), BorderLayout.CENTER);
+        return panel;
     }
 
     private JPanel detailBody() {
@@ -981,6 +1293,19 @@ public class DashboardFrame extends JFrame {
         box.setModel(model);
     }
 
+    private void loadParentCategories(JComboBox<Option> box, Long currentId) {
+        DefaultComboBoxModel<Option> model = new DefaultComboBoxModel<>();
+        model.addElement(new Option(0L, "无父分类"));
+        List<Map<String, Object>> rows = businessService.findCategories();
+        for (Map<String, Object> row : rows) {
+            long id = ((Number) row.get("category_id")).longValue();
+            if (currentId == null || (id != currentId && !isDescendant(rows, id, currentId))) {
+                model.addElement(new Option(id, String.valueOf(row.get("name"))));
+            }
+        }
+        box.setModel(model);
+    }
+
     private void loadItemOptions(JComboBox<Option> box) {
         DefaultComboBoxModel<Option> model = new DefaultComboBoxModel<>();
         for (Map<String, Object> row : businessService.findItems()) {
@@ -991,9 +1316,54 @@ public class DashboardFrame extends JFrame {
         box.setModel(model);
     }
 
+    private void loadCategories(DefaultTableModel model) {
+        try {
+            List<Map<String, Object>> rows = businessService.findCategories();
+            Map<Long, String> names = categoryNames(rows);
+            model.setRowCount(0);
+            for (Map<String, Object> row : rows) {
+                Object parentId = row.get("parent_id");
+                model.addRow(new Object[] {
+                    row.get("category_id"),
+                    row.get("name"),
+                    parentId == null ? "无父分类" : names.getOrDefault(((Number) parentId).longValue(), "父分类已删除"),
+                    parentId == null ? "一级分类" : "子分类"
+                });
+            }
+        } catch (RuntimeException ex) {
+            warn("分类加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void loadChildCategories(DefaultTableModel model, long parentId) {
+        try {
+            model.setRowCount(0);
+            for (Map<String, Object> row : businessService.findCategories()) {
+                Object rowParentId = row.get("parent_id");
+                if (rowParentId != null && ((Number) rowParentId).longValue() == parentId) {
+                    model.addRow(new Object[] {
+                        row.get("category_id"),
+                        row.get("name")
+                    });
+                }
+            }
+        } catch (RuntimeException ex) {
+            warn("子分类加载失败，请检查数据库连接。");
+        }
+    }
+
     private Map<String, Object> findItemRow(long itemId) {
         for (Map<String, Object> row : businessService.findItems()) {
             if (((Number) row.get("item_id")).longValue() == itemId) {
+                return row;
+            }
+        }
+        return null;
+    }
+
+    private Map<String, Object> findCategoryRow(long categoryId) {
+        for (Map<String, Object> row : businessService.findCategories()) {
+            if (((Number) row.get("category_id")).longValue() == categoryId) {
                 return row;
             }
         }
@@ -1073,8 +1443,12 @@ public class DashboardFrame extends JFrame {
     }
 
     private Map<Long, String> categoryNames() {
+        return categoryNames(businessService.findCategories());
+    }
+
+    private Map<Long, String> categoryNames(List<Map<String, Object>> rows) {
         java.util.HashMap<Long, String> names = new java.util.HashMap<>();
-        for (Map<String, Object> row : businessService.findCategories()) {
+        for (Map<String, Object> row : rows) {
             names.put(((Number) row.get("category_id")).longValue(), String.valueOf(row.get("name")));
         }
         return names;
@@ -1091,6 +1465,24 @@ public class DashboardFrame extends JFrame {
     private Option selected(JComboBox<Option> box) {
         Object value = box.getSelectedItem();
         return value instanceof Option option ? option : null;
+    }
+
+    private Long selectedParentId(JComboBox<Option> box) {
+        Option option = selected(box);
+        return option == null || option.id() == 0L ? null : option.id();
+    }
+
+    private boolean isDescendant(List<Map<String, Object>> rows, long categoryId, long parentId) {
+        for (Map<String, Object> row : rows) {
+            Object rowParentId = row.get("parent_id");
+            long rowId = ((Number) row.get("category_id")).longValue();
+            if (rowParentId != null && ((Number) rowParentId).longValue() == parentId) {
+                if (rowId == categoryId || isDescendant(rows, categoryId, rowId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean isAdmin(UserSession session) {

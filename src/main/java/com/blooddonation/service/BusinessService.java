@@ -4,6 +4,7 @@ import com.blooddonation.dao.mongo.DetailDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
+import com.blooddonation.exception.DBException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,62 @@ public class BusinessService {
 
     public List<Map<String, Object>> findCategories() {
         return categoryDAO.findAll();
+    }
+
+    public BusinessResult createCategory(String name, Long parentId) {
+        if (name == null || name.trim().isEmpty()) {
+            return BusinessResult.fail("请输入分类名称");
+        }
+        if (parentId != null && categoryDAO.findById(parentId).isEmpty()) {
+            return BusinessResult.fail("父分类不存在");
+        }
+
+        long categoryId = categoryDAO.create(name.trim(), parentId);
+        return BusinessResult.ok(categoryId, "保存成功");
+    }
+
+    public BusinessResult updateCategory(long categoryId, String name, Long parentId) {
+        if (categoryId <= 0) {
+            return BusinessResult.fail("请选择有效分类");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            return BusinessResult.fail("请输入分类名称");
+        }
+        if (parentId != null && parentId == categoryId) {
+            return BusinessResult.fail("父分类不能选择自己");
+        }
+        if (parentId != null && categoryDAO.findById(parentId).isEmpty()) {
+            return BusinessResult.fail("父分类不存在");
+        }
+        if (parentId != null && isCategoryDescendant(parentId, categoryId, categoryDAO.findAll())) {
+            return BusinessResult.fail("父分类不能选择子分类");
+        }
+        if (!categoryDAO.update(categoryId, name.trim(), parentId)) {
+            return BusinessResult.fail("分类不存在");
+        }
+        return BusinessResult.ok(categoryId, "保存成功");
+    }
+
+    public BusinessResult deleteCategory(long categoryId) {
+        if (categoryId <= 0) {
+            return BusinessResult.fail("请选择有效分类");
+        }
+        if (categoryDAO.findById(categoryId).isEmpty()) {
+            return BusinessResult.fail("分类不存在");
+        }
+        if (!categoryDAO.findChildren(categoryId).isEmpty()) {
+            return BusinessResult.fail("分类下还有子分类，不能删除");
+        }
+        if (!itemDAO.findByCategory(categoryId).isEmpty()) {
+            return BusinessResult.fail("分类已被库存使用，不能删除");
+        }
+        try {
+            return categoryDAO.deleteById(categoryId)
+                ? BusinessResult.ok(categoryId, "删除成功")
+                : BusinessResult.fail("删除失败，请刷新后重试");
+        } catch (DBException ex) {
+            return BusinessResult.fail("分类已被使用，不能删除");
+        }
     }
 
     public List<Map<String, Object>> findItems() {
@@ -208,6 +265,19 @@ public class BusinessService {
 
     private Document safe(Document metadata) {
         return metadata == null ? new Document() : metadata;
+    }
+
+    private boolean isCategoryDescendant(long categoryId, long parentId, List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            Object rowParentId = row.get("parent_id");
+            long rowId = ((Number) row.get("category_id")).longValue();
+            if (rowParentId != null && ((Number) rowParentId).longValue() == parentId) {
+                if (rowId == categoryId || isCategoryDescendant(categoryId, rowId, rows)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public record BusinessResult(boolean success, String message, long id) {

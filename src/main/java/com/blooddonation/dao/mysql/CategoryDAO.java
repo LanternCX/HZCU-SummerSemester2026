@@ -46,6 +46,19 @@ public class CategoryDAO extends BaseDAO {
         });
     }
 
+    public boolean update(long categoryId, String name, Long parentId) {
+        String sql = "UPDATE categories SET name = ?, parent_id = ? WHERE category_id = ?";
+        return update(sql, statement -> {
+            statement.setString(1, name);
+            if (parentId == null) {
+                statement.setNull(2, Types.BIGINT);
+            } else {
+                statement.setLong(2, parentId);
+            }
+            statement.setLong(3, categoryId);
+        });
+    }
+
     public boolean deleteById(long categoryId) {
         String sql = "DELETE FROM categories WHERE category_id = ?";
         return update(sql, statement -> statement.setLong(1, categoryId));
