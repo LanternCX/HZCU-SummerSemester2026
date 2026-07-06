@@ -3,16 +3,16 @@ USE `hzcu_mysql`;
 SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 INSERT INTO `users` (`user_id`, `username`, `password_hash`, `email`, `phone`, `role`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'mock_hash_admin', 'admin@example.test', '19900000001', 'ADMIN', 1, '2026-07-01 08:00:00', '2026-07-01 08:00:00'),
-(2, 'operator01', 'mock_hash_02', 'operator01@example.test', '19900000002', 'USER', 1, '2026-07-01 08:05:00', '2026-07-01 08:05:00'),
-(3, 'operator02', 'mock_hash_03', 'operator02@example.test', '19900000003', 'USER', 1, '2026-07-01 08:10:00', '2026-07-01 08:10:00'),
-(4, 'operator03', 'mock_hash_04', 'operator03@example.test', '19900000004', 'USER', 1, '2026-07-01 08:15:00', '2026-07-01 08:15:00'),
-(5, 'operator04', 'mock_hash_05', 'operator04@example.test', '19900000005', 'USER', 1, '2026-07-01 08:20:00', '2026-07-01 08:20:00'),
-(6, 'operator05', 'mock_hash_06', 'operator05@example.test', '19900000006', 'USER', 1, '2026-07-01 08:25:00', '2026-07-01 08:25:00'),
-(7, 'auditor01', 'mock_hash_07', 'auditor01@example.test', '19900000007', 'USER', 1, '2026-07-01 08:30:00', '2026-07-01 08:30:00'),
-(8, 'auditor02', 'mock_hash_08', 'auditor02@example.test', '19900000008', 'USER', 0, '2026-07-01 08:35:00', '2026-07-01 08:35:00'),
-(9, 'manager01', 'mock_hash_09', 'manager01@example.test', '19900000009', 'ADMIN', 1, '2026-07-01 08:40:00', '2026-07-01 08:40:00'),
-(10, 'manager02', 'mock_hash_10', 'manager02@example.test', '19900000010', 'ADMIN', 1, '2026-07-01 08:45:00', '2026-07-01 08:45:00');
+(1, 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'admin@example.test', '19900000001', 'ADMIN', 1, '2026-07-01 08:00:00', '2026-07-01 08:00:00'),
+(2, 'user01', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'user01@example.test', '19900000002', 'USER', 1, '2026-07-01 08:05:00', '2026-07-01 08:05:00'),
+(3, 'user02', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'user02@example.test', '19900000003', 'USER', 1, '2026-07-01 08:10:00', '2026-07-01 08:10:00'),
+(4, 'user03', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'user03@example.test', '19900000004', 'USER', 1, '2026-07-01 08:15:00', '2026-07-01 08:15:00'),
+(5, 'user04', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'user04@example.test', '19900000005', 'USER', 1, '2026-07-01 08:20:00', '2026-07-01 08:20:00'),
+(6, 'user05', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'user05@example.test', '19900000006', 'USER', 1, '2026-07-01 08:25:00', '2026-07-01 08:25:00'),
+(7, 'auditor01', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'auditor01@example.test', '19900000007', 'USER', 1, '2026-07-01 08:30:00', '2026-07-01 08:30:00'),
+(8, 'auditor02', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', 'auditor02@example.test', '19900000008', 'USER', 0, '2026-07-01 08:35:00', '2026-07-01 08:35:00'),
+(9, 'manager01', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'manager01@example.test', '19900000009', 'ADMIN', 1, '2026-07-01 08:40:00', '2026-07-01 08:40:00'),
+(10, 'manager02', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'manager02@example.test', '19900000010', 'ADMIN', 1, '2026-07-01 08:45:00', '2026-07-01 08:45:00');
 
 INSERT INTO `categories` (`category_id`, `name`, `parent_id`) VALUES
 (1, '血液类型', NULL),
