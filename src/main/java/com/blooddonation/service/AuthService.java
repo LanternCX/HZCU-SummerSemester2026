@@ -2,12 +2,9 @@ package com.blooddonation.service;
 
 import com.blooddonation.dao.mongo.SystemLogDAO;
 import com.blooddonation.dao.mysql.UserDAO;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Map;
 import org.bson.Document;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class AuthService {
     private final UserDAO userDAO;
@@ -59,12 +56,7 @@ public class AuthService {
     }
 
     public static String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(password.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
+        return BCrypt.hashpw(password, BCrypt.gensalt());
     }
 
     private LoginResult authenticate(Map<String, Object> user, String password, String ip) {
@@ -72,7 +64,7 @@ public class AuthService {
             logFailure(String.valueOf(user.get("user_id")), ip, "账号已停用");
             return LoginResult.fail("账号已停用");
         }
-        if (!hashPassword(password).equals(user.get("password_hash"))) {
+        if (!BCrypt.checkpw(password, String.valueOf(user.get("password_hash")))) {
             logFailure(String.valueOf(user.get("user_id")), ip, "用户名或密码错误");
             return LoginResult.fail("用户名或密码错误");
         }

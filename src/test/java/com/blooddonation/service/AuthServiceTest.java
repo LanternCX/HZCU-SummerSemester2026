@@ -11,8 +11,17 @@ import java.util.Map;
 import java.util.Optional;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
+import org.mindrot.jbcrypt.BCrypt;
 
 class AuthServiceTest {
+    @Test
+    void hashPasswordUsesBCrypt() {
+        String passwordHash = AuthService.hashPassword("user123");
+
+        assertTrue(passwordHash.startsWith("$2"));
+        assertTrue(BCrypt.checkpw("user123", passwordHash));
+    }
+
     @Test
     void loginAcceptsActiveUserAndWritesLog() {
         FakeUserDAO users = new FakeUserDAO();
@@ -61,7 +70,7 @@ class AuthServiceTest {
         assertTrue(result.success());
         assertEquals(99L, result.userId());
         assertEquals("user99", users.createdUsername);
-        assertEquals(AuthService.hashPassword("user123"), users.createdPasswordHash);
+        assertTrue(BCrypt.checkpw("user123", users.createdPasswordHash));
         assertEquals("USER", users.createdRole);
     }
 
