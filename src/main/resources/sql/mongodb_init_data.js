@@ -42,10 +42,17 @@ for (let i = 1; i <= 20; i += 1) {
 hzcuDb.comments.insertMany(comments);
 
 const actionLogs = [];
-for (let i = 1; i <= 100; i += 1) {
+const actionWeights = [14, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+const actionItemIds = [];
+for (let itemIndex = 0; itemIndex < actionWeights.length; itemIndex += 1) {
+  for (let count = 0; count < actionWeights[itemIndex]; count += 1) {
+    actionItemIds.push(String(itemIndex + 1));
+  }
+}
+for (let i = 1; i <= actionItemIds.length; i += 1) {
   actionLogs.push({
     user_id: String(((i - 1) % 10) + 1),
-    item_id: String(((i - 1) % 20) + 1),
+    item_id: actionItemIds[i - 1],
     action_type: actionTypes[(i - 1) % actionTypes.length],
     duration_seconds: 30 + (i % 12) * 10,
     client_info: {

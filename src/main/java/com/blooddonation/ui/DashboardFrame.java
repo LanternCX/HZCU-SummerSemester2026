@@ -476,12 +476,12 @@ public class DashboardFrame extends JFrame {
     }
 
     private void showStatisticsPanel() {
-        resetMain("统计报表", "查看库存热度和评论评分。");
+        resetMain("统计报表", "查看批次操作热度和评论评分。");
 
         JTabbedPane tabs = innerTabs();
 
-        BarChartPanel topItems = new BarChartPanel(0, "");
-        tabs.addTab("热门批次", section("热门批次", chartScroll(topItems)));
+        BarChartPanel topItems = new BarChartPanel(0, " 次");
+        tabs.addTab("操作热度", section("操作热度", chartScroll(topItems)));
 
         BarChartPanel ratings = new BarChartPanel(5, " / 5");
         tabs.addTab("评论评分", section("评论评分", chartScroll(ratings)));
@@ -2138,24 +2138,50 @@ public class DashboardFrame extends JFrame {
     private void loadStatistics(BarChartPanel topItems, BarChartPanel ratings) {
         try {
             Map<Long, String> items = itemNames();
-            List<ChartRow> topRows = new ArrayList<>();
-            for (Document row : businessService.topActionItems(10)) {
-                Number count = row.get("action_count", Number.class);
-                topRows.add(new ChartRow(itemName(items, row.get("item_id")), count == null ? 0 : count.doubleValue()));
-            }
-            topItems.setRows(topRows);
-
-            List<ChartRow> ratingRows = new ArrayList<>();
-            for (Document row : businessService.commentRatingSummary()) {
-                Number averageRating = row.get("average_rating", Number.class);
-                Number commentCount = row.get("comment_count", Number.class);
-                String label = itemName(items, row.get("item_id")) + "（" + (commentCount == null ? 0 : commentCount.intValue()) + " 条）";
-                ratingRows.add(new ChartRow(label, averageRating == null ? 0 : averageRating.doubleValue()));
-            }
-            ratings.setRows(ratingRows);
+            topItems.setRows(actionChartRows(items, businessService.topActionItems(50)).stream().limit(10).toList());
+            ratings.setRows(ratingChartRows(items, businessService.commentRatingSummary()));
 
         } catch (RuntimeException ex) {
             warn("统计数据加载失败，请检查数据库连接。");
+        }
+    }
+
+    private static List<ChartRow> actionChartRows(Map<Long, String> items, List<Document> rows) {
+        List<ChartRow> chartRows = new ArrayList<>();
+        for (Document row : rows) {
+            Long itemId = itemId(row.get("item_id"));
+            if (itemId == null || !items.containsKey(itemId)) {
+                continue;
+            }
+            Number count = row.get("action_count", Number.class);
+            chartRows.add(new ChartRow(items.get(itemId), count == null ? 0 : count.doubleValue()));
+        }
+        return chartRows;
+    }
+
+    private static List<ChartRow> ratingChartRows(Map<Long, String> items, List<Document> rows) {
+        List<ChartRow> chartRows = new ArrayList<>();
+        for (Document row : rows) {
+            Long itemId = itemId(row.get("item_id"));
+            if (itemId == null || !items.containsKey(itemId)) {
+                continue;
+            }
+            Number averageRating = row.get("average_rating", Number.class);
+            Number commentCount = row.get("comment_count", Number.class);
+            String label = items.get(itemId) + "（" + (commentCount == null ? 0 : commentCount.intValue()) + " 条）";
+            chartRows.add(new ChartRow(label, averageRating == null ? 0 : averageRating.doubleValue()));
+        }
+        return chartRows;
+    }
+
+    private static Long itemId(Object value) {
+        if (value == null || "NONE".equals(String.valueOf(value))) {
+            return null;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 
