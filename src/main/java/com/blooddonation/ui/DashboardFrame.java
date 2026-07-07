@@ -655,7 +655,7 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton editButton = new JButton("编辑");
-        Ui.primaryButton(editButton, 112);
+        Ui.toolbarButton(editButton, 96, true);
         editButton.addActionListener(event -> showEditUserProfileDialog(session.userId(), session, model, () -> {
             loadUserProfiles(model, session);
             showOwnProfilePanel(session);
@@ -1333,13 +1333,13 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton closeButton = new JButton("关闭");
-        Ui.textButton(closeButton);
+        Ui.toolbarButton(closeButton, 96, false);
         closeButton.addActionListener(event -> closeDetailTab(tabs, key));
         actions.add(closeButton);
 
         if (isAdmin(session)) {
             JButton editButton = new JButton("编辑");
-            Ui.primaryButton(editButton, 112);
+            Ui.toolbarButton(editButton, 96, true);
             editButton.addActionListener(event -> showEditItemDialog(itemId, model, () -> {
                 closeDetailTab(tabs, key);
                 openItemDetailTab(tabs, table, itemId, model, session);
@@ -1347,7 +1347,7 @@ public class DashboardFrame extends JFrame {
             actions.add(editButton);
 
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 112);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 if (confirm("确认删除该库存批次？")) {
                     showResult(businessService.deleteItem(itemId));
@@ -1380,13 +1380,13 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton closeButton = new JButton("关闭");
-        Ui.textButton(closeButton);
+        Ui.toolbarButton(closeButton, 96, false);
         closeButton.addActionListener(event -> closeDetailTab(tabs, key));
         actions.add(closeButton);
 
         if (isAdmin(session)) {
             JButton editButton = new JButton("编辑");
-            Ui.primaryButton(editButton, 112);
+            Ui.toolbarButton(editButton, 96, true);
             editButton.addActionListener(event -> showUpdateOrderDialog(
                 orderId,
                 session,
@@ -1401,7 +1401,7 @@ public class DashboardFrame extends JFrame {
             addOrderDeleteButton(actions, tabs, key, session, model, orderId);
         } else if (isPendingOrder(model, orderId)) {
             JButton editButton = new JButton("编辑");
-            Ui.primaryButton(editButton, 112);
+            Ui.toolbarButton(editButton, 96, true);
             editButton.addActionListener(event -> showEditOwnOrderDialog(
                 orderId,
                 session,
@@ -1434,13 +1434,13 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton closeButton = new JButton("关闭");
-        Ui.textButton(closeButton);
+        Ui.toolbarButton(closeButton, 96, false);
         closeButton.addActionListener(event -> closeDetailTab(tabs, key));
         actions.add(closeButton);
 
         if (isAdmin(session)) {
             JButton editButton = new JButton("编辑");
-            Ui.primaryButton(editButton, 112);
+            Ui.toolbarButton(editButton, 96, true);
             editButton.addActionListener(event -> showEditCategoryDialog(categoryId, model, () -> {
                 closeDetailTab(tabs, key);
                 openCategoryDetailTab(tabs, table, categoryId, session, model);
@@ -1448,7 +1448,7 @@ public class DashboardFrame extends JFrame {
             actions.add(editButton);
 
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 112);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 if (confirm("确认删除该分类？")) {
                     BusinessResult result = businessService.deleteCategory(categoryId);
@@ -1484,12 +1484,12 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton closeButton = new JButton("关闭");
-        Ui.textButton(closeButton);
+        Ui.toolbarButton(closeButton, 96, false);
         closeButton.addActionListener(event -> closeDetailTab(tabs, key));
         actions.add(closeButton);
 
         JButton editButton = new JButton("编辑");
-        Ui.primaryButton(editButton, 112);
+        Ui.toolbarButton(editButton, 96, true);
         editButton.addActionListener(event -> showEditUserProfileDialog(userId, session, model, () -> {
             closeDetailTab(tabs, key);
             openUserProfileDetailTab(tabs, table, userId, session, model);
@@ -1498,7 +1498,7 @@ public class DashboardFrame extends JFrame {
 
         if (isAdmin(session)) {
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 112);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 if (confirm("确认删除该用户？")) {
                     BusinessResult result = businessService.deleteUser(session.userId(), true, userId);
@@ -1525,11 +1525,11 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton closeButton = new JButton("关闭");
-        Ui.textButton(closeButton);
+        Ui.toolbarButton(closeButton, 96, false);
         closeButton.addActionListener(event -> closeDetailTab(tabs, key));
         actions.add(closeButton);
         JButton applyButton = new JButton("申请");
-        Ui.primaryButton(applyButton, 112);
+        Ui.toolbarButton(applyButton, 96, true);
         applyButton.addActionListener(event -> showApplyOrderDialog(session, itemId, insightTitle(itemId)));
         actions.add(applyButton);
 
@@ -1546,7 +1546,7 @@ public class DashboardFrame extends JFrame {
         long orderId
     ) {
         JButton deleteButton = new JButton("删除");
-        Ui.primaryButton(deleteButton, 112);
+        Ui.toolbarButton(deleteButton, 96, false);
         deleteButton.addActionListener(event -> {
             if (confirm("确认删除该用血记录？")) {
                 showResult(deleteOrder(session, orderId));
@@ -1723,12 +1723,12 @@ public class DashboardFrame extends JFrame {
         actions.setBackground(Ui.PANEL);
         if (isAdmin(session)) {
             JButton addButton = new JButton("新增子分类");
-            Ui.primaryButton(addButton, 128);
+            Ui.toolbarButton(addButton, 128, true);
             addButton.addActionListener(event -> showCreateChildCategoryDialog(parentId, mainModel, onChanged));
             actions.add(addButton);
 
             JButton editButton = new JButton("编辑");
-            Ui.primaryButton(editButton, 112);
+            Ui.toolbarButton(editButton, 96, true);
             editButton.addActionListener(event -> {
                 Long childId = selectedId(childTable);
                 if (childId == null) {
@@ -1740,7 +1740,7 @@ public class DashboardFrame extends JFrame {
             actions.add(editButton);
 
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 112);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 Long childId = selectedId(childTable);
                 if (childId == null) {
@@ -1845,7 +1845,7 @@ public class DashboardFrame extends JFrame {
         title.setFont(Ui.font(15, Font.BOLD));
         header.add(title, BorderLayout.WEST);
         JButton addButton = new JButton("发表评论");
-        Ui.primaryButton(addButton, 112);
+        Ui.toolbarButton(addButton, 112, true);
         addButton.addActionListener(event -> showCreateCommentDialog(itemId, session, onChanged));
         header.add(addButton, BorderLayout.EAST);
         panel.add(header, BorderLayout.NORTH);
@@ -1880,13 +1880,13 @@ public class DashboardFrame extends JFrame {
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         controls.setBackground(new Color(250, 249, 246));
-        controls.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        controls.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         JButton prev = new JButton("上一条");
         JButton next = new JButton("下一条");
         JButton delete = new JButton("删除");
-        Ui.textButton(prev);
-        Ui.textButton(next);
-        Ui.textButton(delete);
+        Ui.toolbarButton(prev, 96, false);
+        Ui.toolbarButton(next, 96, false);
+        Ui.toolbarButton(delete, 96, false);
         JLabel page = new JLabel();
         page.setForeground(Ui.TEXT);
         page.setFont(Ui.font(13, Font.PLAIN));
