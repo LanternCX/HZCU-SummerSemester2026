@@ -49,7 +49,7 @@ INSERT INTO `items` (`item_id`, `title`, `category_id`, `amount`, `status`, `cre
 (20, 'O型血浆库存批次-020', 10, 410.00, 1, '2026-07-02 10:30:00', '2026-07-02 10:30:00');
 
 INSERT INTO `profiles` (`profile_id`, `user_id`, `real_name`, `id_card`, `address`, `notes`) VALUES
-(1, 1, '测试管理员一', 'TEST-ID-0001', '测试地址 1', '管理员档案'),
+(1, 1, '超级管理员', 'TEST-ID-0001', '测试地址 1', '超级管理员档案'),
 (2, 2, '测试操作员一', 'TEST-ID-0002', '测试地址 2', '操作员档案'),
 (3, 3, '测试操作员二', 'TEST-ID-0003', '测试地址 3', '操作员档案'),
 (4, 4, '测试操作员三', 'TEST-ID-0004', '测试地址 4', '操作员档案'),

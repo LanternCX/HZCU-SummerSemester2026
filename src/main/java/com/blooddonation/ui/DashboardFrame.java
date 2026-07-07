@@ -95,7 +95,7 @@ public class DashboardFrame extends JFrame {
 
         JPanel nav = new JPanel(new GridLayout(0, 1, 0, 10));
         nav.setBackground(Ui.SIDEBAR);
-        String[] modules = {"业务数据", "推荐批次", "订单记录", "分类管理", "统计报表", "系统日志"};
+        String[] modules = {"业务数据", "推荐批次", "订单记录", "用户管理", "分类管理", "统计报表", "系统日志"};
         for (String module : modules) {
             JButton button = new JButton(module);
             button.setFocusPainted(false);
@@ -111,10 +111,27 @@ public class DashboardFrame extends JFrame {
         selectNav(navButtons.get(0));
         panel.add(nav, BorderLayout.CENTER);
 
+        JPanel footer = new JPanel(new BorderLayout(0, 10));
+        footer.setBackground(Ui.SIDEBAR);
         JLabel user = new JLabel("<html>" + session.username() + "<br>" + session.role() + "</html>");
         user.setForeground(Ui.PANEL);
         user.setFont(Ui.font(14, Font.PLAIN));
-        panel.add(user, BorderLayout.SOUTH);
+        footer.add(user, BorderLayout.NORTH);
+        JButton logout = new JButton("登出");
+        logout.setFocusPainted(false);
+        logout.setForeground(Ui.PANEL);
+        logout.setBackground(new Color(61, 65, 75));
+        logout.setOpaque(true);
+        logout.setContentAreaFilled(true);
+        logout.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+        logout.addActionListener(event -> {
+            if (confirm("确认登出当前账号？")) {
+                dispose();
+                new LoginFrame().setVisible(true);
+            }
+        });
+        footer.add(logout, BorderLayout.SOUTH);
+        panel.add(footer, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -129,6 +146,10 @@ public class DashboardFrame extends JFrame {
         }
         if ("推荐批次".equals(module)) {
             showRecommendPanel(session);
+            return;
+        }
+        if ("用户管理".equals(module)) {
+            showUserProfilePanel(session);
             return;
         }
         if ("分类管理".equals(module)) {
@@ -363,6 +384,79 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    private void showEditUserProfileDialog(long userId, UserSession session, DefaultTableModel model, Runnable onSaved) {
+        Map<String, Object> row = findUserProfileRow(userId, session);
+        if (row == null) {
+            warn("用户不存在。");
+            return;
+        }
+
+        JDialog dialog = new JDialog(this, "编辑用户档案", true);
+        JTextField usernameField = field();
+        usernameField.setText(String.valueOf(row.get("username")));
+        usernameField.setEditable(false);
+        JTextField emailField = field();
+        emailField.setText(valueText(row.get("email")));
+        JTextField phoneField = field();
+        phoneField.setText(valueText(row.get("phone")));
+        JTextField realNameField = field();
+        realNameField.setText(valueText(row.get("real_name")));
+        JTextField idCardField = field();
+        idCardField.setText(valueText(row.get("id_card")));
+        JTextField addressField = field();
+        addressField.setText(valueText(row.get("address")));
+        JTextArea notesArea = area(4);
+        notesArea.setText(valueText(row.get("notes")));
+        JComboBox<String> statusBox = new JComboBox<>(new String[] {"禁用", "启用"});
+        Ui.comboBox(statusBox, 240);
+        statusBox.setSelectedIndex(((Number) row.get("status")).intValue());
+        statusBox.setEnabled(isAdmin(session));
+        JComboBox<String> roleBox = new JComboBox<>(new String[] {"普通用户", "管理员"});
+        Ui.comboBox(roleBox, 240);
+        roleBox.setSelectedIndex("ADMIN".equals(row.get("role")) ? 1 : 0);
+        roleBox.setEnabled(isSuperAdmin(session) && !isSuperAdmin(userId));
+
+        JPanel form = userProfileForm(usernameField, roleBox, statusBox, emailField, phoneField, realNameField, idCardField, addressField, notesArea);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("保存");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            try {
+                BusinessResult result = businessService.saveUserProfile(
+                    session.userId(),
+                    isAdmin(session),
+                    userId,
+                    emailField.getText(),
+                    phoneField.getText(),
+                    selectedRole(roleBox),
+                    statusBox.getSelectedIndex(),
+                    realNameField.getText(),
+                    idCardField.getText(),
+                    addressField.getText(),
+                    notesArea.getText()
+                );
+                showResult(result);
+                if (result.success()) {
+                    loadUserProfiles(model, session);
+                    onSaved.run();
+                    dialog.dispose();
+                }
+            } catch (RuntimeException ex) {
+                warn("保存失败，请检查邮箱、证件号是否重复。");
+            }
+        });
+
+        dialog.setContentPane(dialogContent("编辑用户档案", form, cancelButton, saveButton));
+        dialog.getRootPane().setDefaultButton(saveButton);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(760, 620));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void showOrderPanel(UserSession session) {
         resetMain("订单记录", "查看用血记录，双击表格行打开详情。");
 
@@ -472,6 +566,85 @@ public class DashboardFrame extends JFrame {
         tabs.add(section("分类列表", tableScroll(table), isAdmin(session) ? actions : null), "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadCategories(model);
+        refreshMain();
+    }
+
+    private void showUserProfilePanel(UserSession session) {
+        if (!isAdmin(session)) {
+            showOwnProfilePanel(session);
+            return;
+        }
+
+        resetMain("用户管理", "维护用户权限、状态和档案信息，双击表格行打开详情。");
+
+        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号");
+        JTable table = table(model);
+        hideFirstColumn(table);
+        setColumnWidths(table, 0, 150, 90, 90, 220, 140, 130, 170);
+
+        JPanel tabs = tabs();
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2) {
+                    Long userId = selectedId(table);
+                    if (userId != null) {
+                        openUserProfileDetailTab(tabs, table, userId, session, model);
+                    }
+                }
+            }
+        });
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        if (isAdmin(session)) {
+            JButton deleteButton = new JButton("删除");
+            Ui.toolbarButton(deleteButton, 96, false);
+            deleteButton.addActionListener(event -> {
+                Long userId = selectedId(table);
+                if (userId == null) {
+                    warn("请先在表格中选择用户。");
+                    return;
+                }
+                if (confirm("确认删除选中的用户？")) {
+                    BusinessResult result = businessService.deleteUser(session.userId(), true, userId);
+                    showResult(result);
+                    if (result.success()) {
+                        loadUserProfiles(model, session);
+                        closeDetailTab(tabs, "user:" + userId);
+                    }
+                }
+            });
+            actions.add(deleteButton);
+        }
+
+        tabs.add(section(
+            "用户列表",
+            filteredTablePanel(table, filterBar(table, new FilterChoice("状态", 3), new FilterChoice("角色", 2))),
+            actions.getComponentCount() > 0 ? actions : null
+        ), "list");
+        mainPanel.add(tabs, BorderLayout.CENTER);
+        loadUserProfiles(model, session);
+        refreshMain();
+    }
+
+    private void showOwnProfilePanel(UserSession session) {
+        resetMain("我的档案", "查看和维护自己的联系方式与档案。");
+
+        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号");
+        loadUserProfiles(model, session);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        JButton editButton = new JButton("编辑");
+        Ui.primaryButton(editButton, 112);
+        editButton.addActionListener(event -> showEditUserProfileDialog(session.userId(), session, model, () -> {
+            loadUserProfiles(model, session);
+            showOwnProfilePanel(session);
+        }));
+        actions.add(editButton);
+
+        mainPanel.add(detailPage("我的档案", userProfileDetailBody(model, session.userId()), actions), BorderLayout.CENTER);
         refreshMain();
     }
 
@@ -1205,6 +1378,53 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("分类", table, categoryId, 1), detail, key);
     }
 
+    private void openUserProfileDetailTab(
+        JPanel tabs,
+        JTable table,
+        long userId,
+        UserSession session,
+        DefaultTableModel model
+    ) {
+        String key = "user:" + userId;
+        if (selectDetailTab(tabs, key)) {
+            return;
+        }
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        JButton closeButton = new JButton("关闭");
+        Ui.textButton(closeButton);
+        closeButton.addActionListener(event -> closeDetailTab(tabs, key));
+        actions.add(closeButton);
+
+        JButton editButton = new JButton("编辑");
+        Ui.primaryButton(editButton, 112);
+        editButton.addActionListener(event -> showEditUserProfileDialog(userId, session, model, () -> {
+            closeDetailTab(tabs, key);
+            openUserProfileDetailTab(tabs, table, userId, session, model);
+        }));
+        actions.add(editButton);
+
+        if (isAdmin(session)) {
+            JButton deleteButton = new JButton("删除");
+            Ui.primaryButton(deleteButton, 112);
+            deleteButton.addActionListener(event -> {
+                if (confirm("确认删除该用户？")) {
+                    BusinessResult result = businessService.deleteUser(session.userId(), true, userId);
+                    showResult(result);
+                    if (result.success()) {
+                        loadUserProfiles(model, session);
+                        closeDetailTab(tabs, key);
+                    }
+                }
+            });
+            actions.add(deleteButton);
+        }
+
+        JPanel detail = detailPage("用户管理", userProfileDetailBody(model, userId), actions);
+        addDetailTab(tabs, detailTabTitle("用户", table, userId, 1), detail, key);
+    }
+
     private void openInsightDetailTab(JPanel tabs, long itemId, UserSession session) {
         String key = "insight:" + itemId;
         if (selectDetailTab(tabs, key)) {
@@ -1353,6 +1573,26 @@ public class DashboardFrame extends JFrame {
             }
         }
         body.add(emptyDetail("该分类未在当前列表中。"), BorderLayout.CENTER);
+        return body;
+    }
+
+    private JPanel userProfileDetailBody(DefaultTableModel model, long userId) {
+        JPanel body = detailBody();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (((Number) model.getValueAt(i, 0)).longValue() == userId) {
+                JPanel grid = detailGrid();
+                addInfo(grid, 0, 0, 2, "用户名", model.getValueAt(i, 1));
+                addInfo(grid, 1, 0, 1, "角色", model.getValueAt(i, 2));
+                addInfo(grid, 1, 1, 1, "状态", model.getValueAt(i, 3));
+                addInfo(grid, 2, 0, 1, "邮箱", model.getValueAt(i, 4));
+                addInfo(grid, 2, 1, 1, "手机号", model.getValueAt(i, 5));
+                addInfo(grid, 3, 0, 1, "姓名", model.getValueAt(i, 6));
+                addInfo(grid, 3, 1, 1, "证件号", model.getValueAt(i, 7));
+                body.add(grid, BorderLayout.NORTH);
+                return body;
+            }
+        }
+        body.add(emptyDetail("该用户未在当前列表中。"), BorderLayout.CENTER);
         return body;
     }
 
@@ -1788,6 +2028,31 @@ public class DashboardFrame extends JFrame {
         return form;
     }
 
+    private JPanel userProfileForm(
+        JTextField usernameField,
+        JComboBox<String> roleBox,
+        JComboBox<String> statusBox,
+        JTextField emailField,
+        JTextField phoneField,
+        JTextField realNameField,
+        JTextField idCardField,
+        JTextField addressField,
+        JTextArea notesArea
+    ) {
+        JPanel form = formPanel();
+        form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
+        addFormField(form, 0, 0, 1, "用户名", usernameField);
+        addFormField(form, 0, 1, 1, "角色", roleBox);
+        addFormField(form, 1, 0, 1, "状态", statusBox);
+        addFormField(form, 1, 1, 1, "邮箱", emailField);
+        addFormField(form, 2, 0, 1, "手机号", phoneField);
+        addFormField(form, 2, 1, 1, "姓名", realNameField);
+        addFormField(form, 3, 0, 2, "证件号", idCardField);
+        addFormField(form, 4, 0, 2, "地址", addressField);
+        addFormField(form, 5, 0, 2, "备注", areaScroll(notesArea));
+        return form;
+    }
+
     private void addFormField(JPanel form, int row, int column, int width, String labelText, java.awt.Component field) {
         JPanel block = new JPanel(new BorderLayout(0, 8));
         block.setBackground(Ui.PANEL);
@@ -2011,6 +2276,15 @@ public class DashboardFrame extends JFrame {
         return null;
     }
 
+    private Map<String, Object> findUserProfileRow(long userId, UserSession session) {
+        for (Map<String, Object> row : businessService.findUserProfiles(session.userId(), isAdmin(session))) {
+            if (((Number) row.get("user_id")).longValue() == userId) {
+                return row;
+            }
+        }
+        return null;
+    }
+
     private void selectOption(JComboBox<Option> box, long id) {
         for (int i = 0; i < box.getItemCount(); i++) {
             if (box.getItemAt(i).id() == id) {
@@ -2132,6 +2406,26 @@ public class DashboardFrame extends JFrame {
             }
         } catch (RuntimeException ex) {
             warn("记录加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void loadUserProfiles(DefaultTableModel model, UserSession session) {
+        try {
+            model.setRowCount(0);
+            for (Map<String, Object> row : businessService.findUserProfiles(session.userId(), isAdmin(session))) {
+                model.addRow(new Object[] {
+                    row.get("user_id"),
+                    row.get("username"),
+                    roleText(row.get("user_id"), row.get("role")),
+                    userStatus(row.get("status")),
+                    blankText(valueText(row.get("email"))),
+                    blankText(valueText(row.get("phone"))),
+                    blankText(valueText(row.get("real_name"))),
+                    blankText(valueText(row.get("id_card")))
+                });
+            }
+        } catch (RuntimeException ex) {
+            warn("用户档案加载失败，请检查数据库连接。");
         }
     }
 
@@ -2322,6 +2616,10 @@ public class DashboardFrame extends JFrame {
         return option == null || option.id() == 0L ? null : option.id();
     }
 
+    private String selectedRole(JComboBox<String> box) {
+        return box.getSelectedIndex() == 1 ? "ADMIN" : "USER";
+    }
+
     private boolean isDescendant(List<Map<String, Object>> rows, long categoryId, long parentId) {
         for (Map<String, Object> row : rows) {
             Object rowParentId = row.get("parent_id");
@@ -2337,6 +2635,14 @@ public class DashboardFrame extends JFrame {
 
     private boolean isAdmin(UserSession session) {
         return "ADMIN".equals(session.role());
+    }
+
+    private boolean isSuperAdmin(UserSession session) {
+        return isSuperAdmin(session.userId());
+    }
+
+    private boolean isSuperAdmin(long userId) {
+        return userId == 1L;
     }
 
     private Long selectedId(JTable table) {
@@ -2361,8 +2667,23 @@ public class DashboardFrame extends JFrame {
         return ((Number) status).intValue() == 1 ? "可用" : "停用";
     }
 
+    private String userStatus(Object status) {
+        return ((Number) status).intValue() == 1 ? "启用" : "禁用";
+    }
+
+    private String roleText(Object userId, Object role) {
+        if (((Number) userId).longValue() == 1L) {
+            return "超级管理员";
+        }
+        return "ADMIN".equals(role) ? "管理员" : "普通用户";
+    }
+
     private String amountText(Object amount) {
         return amount instanceof BigDecimal value ? value.toPlainString() : String.valueOf(amount);
+    }
+
+    private String valueText(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private String blankText(String value) {

@@ -46,6 +46,14 @@ public class UserDAO extends BaseDAO {
         });
     }
 
+    public boolean updateRole(long userId, String role) {
+        String sql = "UPDATE users SET role = ? WHERE user_id = ?";
+        return update(sql, statement -> {
+            statement.setString(1, role);
+            statement.setLong(2, userId);
+        });
+    }
+
     public boolean deleteById(long userId) {
         String sql = "DELETE FROM users WHERE user_id = ?";
         return update(sql, statement -> statement.setLong(1, userId));

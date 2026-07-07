@@ -11,6 +11,7 @@ import com.blooddonation.dao.mongo.SystemLogDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
+import com.blooddonation.dao.mysql.ProfileDAO;
 import com.blooddonation.dao.mysql.UserDAO;
 import com.blooddonation.dto.ItemInsightDTO;
 import com.blooddonation.dto.RecommendationDTO;
@@ -234,6 +235,93 @@ class BusinessServiceTest {
 
         assertEquals("user01", service.findUsername(2L));
         assertEquals("用户 3", service.findUsername(3L));
+    }
+
+    @Test
+    void userProfileSaveRequiresOwnerOrAdminAndCreatesProfile() {
+        FakeUserDAO users = new FakeUserDAO();
+        users.row = Map.of("user_id", 2L, "username", "user01");
+        FakeProfileDAO profiles = new FakeProfileDAO();
+        BusinessService service = new BusinessService(
+            new FakeItemDAO(),
+            new FakeCategoryDAO(),
+            new FakeDetailDAO(),
+            new FakeCommentDAO(),
+            new FakeOrderDAO(),
+            users,
+            profiles,
+            new FakeLogDAO(),
+            new FakeSystemLogDAO()
+        );
+
+        BusinessService.BusinessResult denied = service.saveUserProfile(
+            3L, false, 2L, "user01@example.test", "19900000002", "USER", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+        );
+        BusinessService.BusinessResult saved = service.saveUserProfile(
+            2L, false, 2L, "user01@example.test", "19900000002", "USER", 0, "用户一", "TEST-ID-0020", "地址", "备注"
+        );
+
+        assertFalse(denied.success());
+        assertTrue(saved.success());
+        assertEquals(2L, users.updatedUserId);
+        assertEquals(0, users.updatedStatus);
+        assertEquals(2L, profiles.createdUserId);
+        assertEquals("用户一", profiles.createdRealName);
+    }
+
+    @Test
+    void onlySuperAdminCanChangeUserRole() {
+        FakeUserDAO users = new FakeUserDAO();
+        users.row = Map.of("user_id", 2L, "username", "user01", "role", "USER");
+        FakeProfileDAO profiles = new FakeProfileDAO();
+        BusinessService service = new BusinessService(
+            new FakeItemDAO(),
+            new FakeCategoryDAO(),
+            new FakeDetailDAO(),
+            new FakeCommentDAO(),
+            new FakeOrderDAO(),
+            users,
+            profiles,
+            new FakeLogDAO(),
+            new FakeSystemLogDAO()
+        );
+
+        BusinessService.BusinessResult denied = service.saveUserProfile(
+            9L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+        );
+        BusinessService.BusinessResult saved = service.saveUserProfile(
+            1L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+        );
+
+        assertFalse(denied.success());
+        assertEquals("只有超级管理员可以修改用户权限", denied.message());
+        assertTrue(saved.success());
+        assertEquals("ADMIN", users.updatedRole);
+    }
+
+    @Test
+    void deleteUserRejectsSelfAndSuperAdmin() {
+        FakeUserDAO users = new FakeUserDAO();
+        users.row = Map.of("user_id", 2L, "username", "user01", "role", "USER");
+        BusinessService service = new BusinessService(
+            new FakeItemDAO(),
+            new FakeCategoryDAO(),
+            new FakeDetailDAO(),
+            new FakeCommentDAO(),
+            new FakeOrderDAO(),
+            users,
+            new FakeProfileDAO(),
+            new FakeLogDAO(),
+            new FakeSystemLogDAO()
+        );
+
+        assertEquals("不能删除当前登录用户", service.deleteUser(2L, true, 2L).message());
+        assertEquals("不能删除超级管理员", service.deleteUser(2L, true, 1L).message());
+
+        BusinessService.BusinessResult deleted = service.deleteUser(1L, true, 2L);
+
+        assertTrue(deleted.success());
+        assertEquals(2L, users.deletedUserId);
     }
 
     @Test
@@ -684,12 +772,57 @@ class BusinessServiceTest {
 
     private static class FakeUserDAO extends UserDAO {
         private Map<String, Object> row;
+        private long updatedUserId;
+        private int updatedStatus;
+        private String updatedRole;
+        private long deletedUserId;
 
         @Override
         public Optional<Map<String, Object>> findById(long userId) {
             return row != null && ((Number) row.get("user_id")).longValue() == userId
                 ? Optional.of(row)
                 : Optional.empty();
+        }
+
+        @Override
+        public boolean updateContact(long userId, String email, String phone) {
+            updatedUserId = userId;
+            return true;
+        }
+
+        @Override
+        public boolean updateStatus(long userId, int status) {
+            updatedStatus = status;
+            return true;
+        }
+
+        @Override
+        public boolean updateRole(long userId, String role) {
+            updatedRole = role;
+            return true;
+        }
+
+        @Override
+        public boolean deleteById(long userId) {
+            deletedUserId = userId;
+            return true;
+        }
+    }
+
+    private static class FakeProfileDAO extends ProfileDAO {
+        private long createdUserId;
+        private String createdRealName;
+
+        @Override
+        public Optional<Map<String, Object>> findByUserId(long userId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public long create(long userId, String realName, String idCard, String address, String notes) {
+            createdUserId = userId;
+            createdRealName = realName;
+            return 41L;
         }
     }
 

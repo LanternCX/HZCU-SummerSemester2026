@@ -7,6 +7,7 @@ import com.blooddonation.dao.mongo.SystemLogDAO;
 import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
+import com.blooddonation.dao.mysql.ProfileDAO;
 import com.blooddonation.dao.mysql.UserDAO;
 import com.blooddonation.dto.ItemInsightDTO;
 import com.blooddonation.dto.RecommendationDTO;
@@ -18,18 +19,21 @@ import java.util.Optional;
 import org.bson.Document;
 
 public class BusinessService {
+    private static final long SUPER_ADMIN_ID = 1L;
+
     private final ItemDAO itemDAO;
     private final CategoryDAO categoryDAO;
     private final DetailDAO detailDAO;
     private final CommentDAO commentDAO;
     private final OrderDAO orderDAO;
     private final UserDAO userDAO;
+    private final ProfileDAO profileDAO;
     private final LogDAO logDAO;
     private final SystemLogDAO systemLogDAO;
     private final RecommendService recommendService;
 
     public BusinessService() {
-        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO(), new LogDAO(), new SystemLogDAO());
+        this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO(), new ProfileDAO(), new LogDAO(), new SystemLogDAO());
     }
 
     BusinessService(ItemDAO itemDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
@@ -45,7 +49,7 @@ public class BusinessService {
     }
 
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO, UserDAO userDAO) {
-        this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, silentLogDAO(), silentSystemLogDAO());
+        this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, new ProfileDAO(), silentLogDAO(), silentSystemLogDAO());
     }
 
     BusinessService(
@@ -58,15 +62,122 @@ public class BusinessService {
         LogDAO logDAO,
         SystemLogDAO systemLogDAO
     ) {
+        this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, new ProfileDAO(), logDAO, systemLogDAO);
+    }
+
+    BusinessService(
+        ItemDAO itemDAO,
+        CategoryDAO categoryDAO,
+        DetailDAO detailDAO,
+        CommentDAO commentDAO,
+        OrderDAO orderDAO,
+        UserDAO userDAO,
+        ProfileDAO profileDAO,
+        LogDAO logDAO,
+        SystemLogDAO systemLogDAO
+    ) {
         this.itemDAO = itemDAO;
         this.categoryDAO = categoryDAO;
         this.detailDAO = detailDAO;
         this.commentDAO = commentDAO;
         this.orderDAO = orderDAO;
         this.userDAO = userDAO;
+        this.profileDAO = profileDAO;
         this.logDAO = logDAO;
         this.systemLogDAO = systemLogDAO;
         this.recommendService = new RecommendService(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, logDAO);
+    }
+
+    public List<Map<String, Object>> findUserProfiles(long userId, boolean admin) {
+        if (admin) {
+            return profileDAO.findUserProfiles();
+        }
+        return userId <= 0 ? List.of() : profileDAO.findUserProfile(userId).stream().toList();
+    }
+
+    public BusinessResult saveUserProfile(
+        long actorUserId,
+        boolean admin,
+        long userId,
+        String email,
+        String phone,
+        String role,
+        int status,
+        String realName,
+        String idCard,
+        String address,
+        String notes
+    ) {
+        if (userId <= 0 || (!admin && actorUserId != userId)) {
+            return BusinessResult.fail("无权维护该用户档案");
+        }
+        Optional<Map<String, Object>> user = userDAO.findById(userId);
+        if (user.isEmpty()) {
+            return BusinessResult.fail("用户不存在");
+        }
+        String cleanEmail = clean(email);
+        String cleanPhone = clean(phone);
+        String cleanRealName = clean(realName);
+        String cleanIdCard = clean(idCard);
+        if (!cleanEmail.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            return BusinessResult.fail("请输入有效邮箱");
+        }
+        if (!cleanPhone.isEmpty() && !cleanPhone.matches("^1\\d{10}$")) {
+            return BusinessResult.fail("请输入有效手机号");
+        }
+        if (cleanRealName.isEmpty() || cleanIdCard.isEmpty()) {
+            return BusinessResult.fail("请输入姓名和证件号");
+        }
+        if (status < 0 || status > 1) {
+            return BusinessResult.fail("请选择有效用户状态");
+        }
+        String cleanRole = clean(role);
+        if (!"ADMIN".equals(cleanRole) && !"USER".equals(cleanRole)) {
+            return BusinessResult.fail("请选择有效用户权限");
+        }
+        if (isSuperAdmin(userId) && (!admin || actorUserId != userId)) {
+            return BusinessResult.fail("不能修改超级管理员权限");
+        }
+        if (admin && !isSuperAdmin(actorUserId) && !cleanRole.equals(String.valueOf(user.get().get("role")))) {
+            return BusinessResult.fail("只有超级管理员可以修改用户权限");
+        }
+
+        userDAO.updateContact(userId, cleanEmail, cleanPhone);
+        if (admin) {
+            userDAO.updateStatus(userId, status);
+            if (!isSuperAdmin(userId)) {
+                userDAO.updateRole(userId, cleanRole);
+            }
+        }
+        Optional<Map<String, Object>> profile = profileDAO.findByUserId(userId);
+        if (profile.isPresent()) {
+            profileDAO.update(((Number) profile.get().get("profile_id")).longValue(), cleanRealName, cleanIdCard, clean(address), clean(notes));
+        } else {
+            profileDAO.create(userId, cleanRealName, cleanIdCard, clean(address), clean(notes));
+        }
+        return BusinessResult.ok(userId, "保存成功");
+    }
+
+    public BusinessResult deleteUser(long actorUserId, boolean admin, long userId) {
+        if (!admin || userId <= 0) {
+            return BusinessResult.fail("无权删除该用户");
+        }
+        if (actorUserId == userId) {
+            return BusinessResult.fail("不能删除当前登录用户");
+        }
+        if (isSuperAdmin(userId)) {
+            return BusinessResult.fail("不能删除超级管理员");
+        }
+        if (userDAO.findById(userId).isEmpty()) {
+            return BusinessResult.fail("用户不存在");
+        }
+        try {
+            return userDAO.deleteById(userId)
+                ? BusinessResult.ok(userId, "删除成功")
+                : BusinessResult.fail("删除失败，请刷新后重试");
+        } catch (DBException ex) {
+            return BusinessResult.fail("用户已有记录，不能删除");
+        }
     }
 
     public List<Map<String, Object>> findCategories() {
@@ -425,6 +536,10 @@ public class BusinessService {
             }
         }
         return false;
+    }
+
+    private boolean isSuperAdmin(long userId) {
+        return userId == SUPER_ADMIN_ID;
     }
 
     public record BusinessResult(boolean success, String message, long id) {
