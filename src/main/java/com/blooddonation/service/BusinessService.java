@@ -471,6 +471,10 @@ public class BusinessService {
         return commentDAO.ratingSummary();
     }
 
+    public List<Document> commentRatingSummaryByUser(long userId) {
+        return userId <= 0 ? List.of() : commentDAO.ratingSummaryByUser(String.valueOf(userId));
+    }
+
     public List<Map<String, Object>> monthlyReport(int year, int month) {
         if (year < 2000 || month < 1 || month > 12) {
             return List.of();

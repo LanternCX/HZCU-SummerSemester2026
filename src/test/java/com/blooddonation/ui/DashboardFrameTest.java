@@ -3,6 +3,7 @@ package com.blooddonation.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.bson.Document;
@@ -22,6 +23,11 @@ class DashboardFrameTest {
         assertEquals(1, rows.size());
         assertEquals("A型全血", value(rows.get(0), "label"));
         assertEquals(8.0, value(rows.get(0), "value"));
+    }
+
+    @Test
+    void monthTextSupportsMysqlDateTimeValues() {
+        assertEquals("2026-07", DashboardFrame.monthText(LocalDateTime.of(2026, 7, 19, 9, 30)));
     }
 
     private Object value(Object row, String name) throws Exception {

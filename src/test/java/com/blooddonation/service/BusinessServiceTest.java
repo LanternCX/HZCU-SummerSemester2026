@@ -512,6 +512,18 @@ class BusinessServiceTest {
     }
 
     @Test
+    void userRatingSummaryUsesOnlyOwnComments() {
+        FakeCommentDAO comments = new FakeCommentDAO();
+        comments.userRatingSummary = List.of(new Document("item_id", "3").append("comment_count", 1).append("average_rating", 5D));
+
+        List<Document> result = new BusinessService(new FakeItemDAO(), new FakeCategoryDAO(), new FakeDetailDAO(), comments, new FakeOrderDAO())
+            .commentRatingSummaryByUser(2L);
+
+        assertEquals("2", comments.ratingUserId);
+        assertEquals(5D, result.get(0).getDouble("average_rating"));
+    }
+
+    @Test
     void monthlyReportCallsOrderProcedureByYearAndMonth() {
         FakeOrderDAO orders = new FakeOrderDAO();
         orders.monthlyReport = List.of(Map.of("category_name", "A型", "used_amount", new BigDecimal("6.00")));
@@ -720,6 +732,8 @@ class BusinessServiceTest {
         private String deletedOwnUserId;
         private boolean deleteSucceeds;
         private List<Document> ratingSummary = List.of();
+        private List<Document> userRatingSummary = List.of();
+        private String ratingUserId;
 
         @Override
         public void createComment(String userId, String itemId, String content, int rating, List<String> tags) {
@@ -746,6 +760,12 @@ class BusinessServiceTest {
         @Override
         public List<Document> ratingSummary() {
             return ratingSummary;
+        }
+
+        @Override
+        public List<Document> ratingSummaryByUser(String userId) {
+            ratingUserId = userId;
+            return userRatingSummary;
         }
     }
 

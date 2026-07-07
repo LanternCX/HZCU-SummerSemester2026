@@ -63,4 +63,19 @@ public class CommentDAO extends MongoBaseDAO {
         );
         return collection().aggregate(pipeline).into(new ArrayList<>());
     }
+
+    public List<Document> ratingSummaryByUser(String userId) {
+        List<Document> pipeline = List.of(
+            new Document("$match", Filters.eq("user_id", userId)),
+            new Document("$group", new Document("_id", "$item_id")
+                .append("comment_count", new Document("$sum", 1))
+                .append("average_rating", new Document("$avg", "$rating"))),
+            new Document("$project", new Document("_id", 0)
+                .append("item_id", "$_id")
+                .append("comment_count", 1)
+                .append("average_rating", 1)),
+            new Document("$sort", new Document("average_rating", -1))
+        );
+        return collection().aggregate(pipeline).into(new ArrayList<>());
+    }
 }

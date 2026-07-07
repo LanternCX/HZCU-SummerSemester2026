@@ -19,9 +19,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashSet;
@@ -96,7 +99,9 @@ public class DashboardFrame extends JFrame {
 
         JPanel nav = new JPanel(new GridLayout(0, 1, 0, 10));
         nav.setBackground(Ui.SIDEBAR);
-        String[] modules = {"业务数据", "推荐批次", "订单记录", "用户管理", "分类管理", "统计报表", "系统日志"};
+        String[] modules = isAdmin(session)
+            ? new String[] {"业务数据", "推荐批次", "订单记录", "用户管理", "分类管理", "统计报表", "系统日志"}
+            : new String[] {"业务数据", "推荐批次", "订单记录", "我的档案", "统计报表"};
         for (String module : modules) {
             JButton button = new JButton(module);
             button.setFocusPainted(false);
@@ -153,16 +158,24 @@ public class DashboardFrame extends JFrame {
             showUserProfilePanel(session);
             return;
         }
+        if ("我的档案".equals(module)) {
+            showOwnProfilePanel(session);
+            return;
+        }
         if ("分类管理".equals(module)) {
-            showCategoryPanel(session);
+            if (isAdmin(session)) {
+                showCategoryPanel(session);
+            }
             return;
         }
         if ("统计报表".equals(module)) {
-            showStatisticsPanel();
+            showStatisticsPanel(session);
             return;
         }
         if ("系统日志".equals(module)) {
-            showLogPanel(session);
+            if (isAdmin(session)) {
+                showLogPanel(session);
+            }
         }
     }
 
@@ -516,6 +529,10 @@ public class DashboardFrame extends JFrame {
     }
 
     private void showCategoryPanel(UserSession session) {
+        if (!isAdmin(session)) {
+            showBusinessPanel(session);
+            return;
+        }
         resetMain("分类管理", "维护血液分类，双击表格行打开详情。");
 
         DefaultTableModel model = tableModel("category_id", "分类名称", "父分类", "层级");
@@ -649,7 +666,12 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
-    private void showStatisticsPanel() {
+    private void showStatisticsPanel(UserSession session) {
+        if (!isAdmin(session)) {
+            showUserStatisticsPanel(session);
+            return;
+        }
+
         resetMain("统计报表", "查看批次操作热度、评论评分和月度用血报表。");
 
         JTabbedPane tabs = innerTabs();
@@ -675,8 +697,6 @@ public class DashboardFrame extends JFrame {
         Ui.toolbarButton(next, 42, false);
         next.setFont(Ui.font(16, Font.BOLD));
         next.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
-        JButton refresh = new JButton("刷新");
-        Ui.toolbarButton(refresh, 88, true);
         previous.addActionListener(event -> {
             selectedMonth[0] = selectedMonth[0].minusMonths(1);
             period.setText(monthLabel(selectedMonth[0]));
@@ -687,15 +707,14 @@ public class DashboardFrame extends JFrame {
             period.setText(monthLabel(selectedMonth[0]));
             loadMonthlyReport(monthly, selectedMonth[0]);
         });
-        refresh.addActionListener(event -> loadMonthlyReport(monthly, selectedMonth[0]));
 
         JPanel monthlyActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         monthlyActions.setBackground(Ui.PANEL);
         monthlyActions.add(previous);
         monthlyActions.add(period);
         monthlyActions.add(next);
-        monthlyActions.add(refresh);
         tabs.addTab("月度报表", section("月度报表", chartScroll(monthly), monthlyActions));
+        addUserStatisticsTabs(tabs, session);
 
         loadStatistics(topItems, ratings);
         loadMonthlyReport(monthly, selectedMonth[0]);
@@ -703,7 +722,40 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    private void showUserStatisticsPanel(UserSession session) {
+        resetMain("统计报表", "查看你的订单、评论和月度申请统计。");
+
+        JTabbedPane tabs = innerTabs();
+        addUserStatisticsTabs(tabs, session);
+
+        mainPanel.add(tabs, BorderLayout.CENTER);
+        refreshMain();
+    }
+
+    private void addUserStatisticsTabs(JTabbedPane tabs, UserSession session) {
+        BarChartPanel statuses = new BarChartPanel(0, " 单");
+        tabs.addTab("订单状态", section("订单状态", chartScroll(statuses)));
+
+        BarChartPanel categories = new BarChartPanel(0, " 单");
+        tabs.addTab("分类分布", section("分类分布", chartScroll(categories)));
+
+        BarChartPanel bloodTypes = new BarChartPanel(0, " 单");
+        tabs.addTab("血型分布", section("血型分布", chartScroll(bloodTypes)));
+
+        BarChartPanel months = new BarChartPanel(0, " 单位");
+        tabs.addTab("月度趋势", section("月度趋势", chartScroll(months)));
+
+        BarChartPanel ratings = new BarChartPanel(5, " / 5");
+        tabs.addTab("我的评分", section("我的评分", chartScroll(ratings)));
+
+        loadUserStatistics(statuses, categories, bloodTypes, months, ratings, session);
+    }
+
     private void showLogPanel(UserSession session) {
+        if (!isAdmin(session)) {
+            showBusinessPanel(session);
+            return;
+        }
         resetMain("系统日志", isAdmin(session) ? "查看业务操作和登录日志。" : "查看自己的业务操作记录。");
 
         JTabbedPane tabs = innerTabs();
@@ -2479,6 +2531,27 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    private void loadUserStatistics(
+        BarChartPanel statuses,
+        BarChartPanel categories,
+        BarChartPanel bloodTypes,
+        BarChartPanel months,
+        BarChartPanel ratings,
+        UserSession session
+    ) {
+        try {
+            List<Map<String, Object>> orders = businessService.findOrdersByUser(session.userId());
+            Map<Long, ItemInsightDTO> items = itemInsightsById();
+            statuses.setRows(orderStatusChartRows(orders));
+            categories.setRows(orderItemChartRows(orders, items, "未分类", true));
+            bloodTypes.setRows(orderItemChartRows(orders, items, "未填写", false));
+            months.setRows(orderMonthChartRows(orders));
+            ratings.setRows(ratingChartRows(itemNames(), businessService.commentRatingSummaryByUser(session.userId())));
+        } catch (RuntimeException ex) {
+            warn("个人统计加载失败，请检查数据库连接。");
+        }
+    }
+
     private void loadMonthlyReport(BarChartPanel monthly, int year, int month) {
         try {
             monthly.setRows(monthlyChartRows(businessService.monthlyReport(year, month)));
@@ -2506,6 +2579,62 @@ public class DashboardFrame extends JFrame {
             chartRows.add(new ChartRow(items.get(itemId), count == null ? 0 : count.doubleValue()));
         }
         return chartRows;
+    }
+
+    private List<ChartRow> orderStatusChartRows(List<Map<String, Object>> rows) {
+        Map<String, Double> counts = new LinkedHashMap<>();
+        counts.put("待处理", 0D);
+        counts.put("已完成", 0D);
+        counts.put("已取消", 0D);
+        for (Map<String, Object> row : rows) {
+            String label = orderStatus(row.get("status"));
+            counts.put(label, counts.getOrDefault(label, 0D) + 1D);
+        }
+        return chartRows(counts);
+    }
+
+    private List<ChartRow> orderItemChartRows(
+        List<Map<String, Object>> rows,
+        Map<Long, ItemInsightDTO> items,
+        String fallback,
+        boolean category
+    ) {
+        Map<String, Double> counts = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            ItemInsightDTO item = items.get(((Number) row.get("item_id")).longValue());
+            String label = item == null ? fallback : category ? item.categoryName() : blankText(item.bloodType());
+            counts.put(label, counts.getOrDefault(label, 0D) + 1D);
+        }
+        return chartRows(counts);
+    }
+
+    private static List<ChartRow> orderMonthChartRows(List<Map<String, Object>> rows) {
+        Map<String, Double> amounts = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String label = monthText(row.get("created_at"));
+            amounts.put(label, amounts.getOrDefault(label, 0D) + doubleValue(row.get("amount")));
+        }
+        return chartRows(amounts);
+    }
+
+    static String monthText(Object value) {
+        if (value instanceof Date date) {
+            return new SimpleDateFormat("yyyy-MM").format(date);
+        }
+        if (value instanceof LocalDateTime dateTime) {
+            return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        }
+        if (value != null && String.valueOf(value).length() >= 7) {
+            return String.valueOf(value).substring(0, 7);
+        }
+        return "未记录";
+    }
+
+    private static List<ChartRow> chartRows(Map<String, Double> values) {
+        return values.entrySet().stream()
+            .filter(entry -> entry.getValue() > 0)
+            .map(entry -> new ChartRow(entry.getKey(), entry.getValue()))
+            .toList();
     }
 
     private static List<ChartRow> ratingChartRows(Map<Long, String> items, List<Document> rows) {
