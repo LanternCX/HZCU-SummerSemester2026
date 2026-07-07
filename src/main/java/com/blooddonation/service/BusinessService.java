@@ -8,6 +8,8 @@ import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
 import com.blooddonation.dao.mysql.UserDAO;
+import com.blooddonation.dto.ItemInsightDTO;
+import com.blooddonation.dto.RecommendationDTO;
 import com.blooddonation.exception.DBException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,6 +26,7 @@ public class BusinessService {
     private final UserDAO userDAO;
     private final LogDAO logDAO;
     private final SystemLogDAO systemLogDAO;
+    private final RecommendService recommendService;
 
     public BusinessService() {
         this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO(), new LogDAO(), new SystemLogDAO());
@@ -63,6 +66,7 @@ public class BusinessService {
         this.userDAO = userDAO;
         this.logDAO = logDAO;
         this.systemLogDAO = systemLogDAO;
+        this.recommendService = new RecommendService(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, logDAO);
     }
 
     public List<Map<String, Object>> findCategories() {
@@ -358,6 +362,14 @@ public class BusinessService {
 
     public List<Document> auditSummary() {
         return systemLogDAO.auditSummary();
+    }
+
+    public List<ItemInsightDTO> findItemInsights() {
+        return recommendService.findItemInsights();
+    }
+
+    public List<RecommendationDTO> recommendItems(long userId, int limit) {
+        return recommendService.recommendItems(userId, limit);
     }
 
     public List<Document> findSystemLogs(String logType, int limit) {

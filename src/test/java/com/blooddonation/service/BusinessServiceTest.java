@@ -12,6 +12,8 @@ import com.blooddonation.dao.mysql.CategoryDAO;
 import com.blooddonation.dao.mysql.ItemDAO;
 import com.blooddonation.dao.mysql.OrderDAO;
 import com.blooddonation.dao.mysql.UserDAO;
+import com.blooddonation.dto.ItemInsightDTO;
+import com.blooddonation.dto.RecommendationDTO;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
@@ -421,6 +423,65 @@ class BusinessServiceTest {
         assertEquals(3, service.auditSummary().get(0).getInteger("log_count"));
     }
 
+    @Test
+    void itemInsightsJoinMysqlRowsWithMongoStats() {
+        FakeItemDAO items = new FakeItemDAO();
+        items.rows = List.of(Map.of(
+            "item_id", 3L,
+            "title", "A型库存",
+            "category_id", 4L,
+            "amount", new BigDecimal("12.00"),
+            "status", 1
+        ));
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(Map.of("category_id", 4L, "name", "A型"));
+        FakeDetailDAO details = new FakeDetailDAO();
+        details.found = new Document("item_id", "3")
+            .append("description", "常规库存")
+            .append("metadata", new Document("blood_type", "A型"));
+        FakeCommentDAO comments = new FakeCommentDAO();
+        comments.ratingSummary = List.of(new Document("item_id", "3").append("comment_count", 2).append("average_rating", 4.5));
+        FakeLogDAO logs = new FakeLogDAO();
+        logs.topItems = List.of(new Document("item_id", "3").append("action_count", 7));
+        FakeOrderDAO orders = new FakeOrderDAO();
+        orders.itemOrderCounts = List.of(Map.of("item_id", 3L, "order_count", 5L));
+
+        List<ItemInsightDTO> result = new BusinessService(items, categories, details, comments, orders, new FakeUserDAO(), logs, new FakeSystemLogDAO())
+            .findItemInsights();
+
+        assertEquals(1, result.size());
+        assertEquals("A型库存", result.get(0).title());
+        assertEquals("A型", result.get(0).categoryName());
+        assertEquals("常规库存", result.get(0).description());
+        assertEquals("A型", result.get(0).bloodType());
+        assertEquals(2, result.get(0).commentCount());
+        assertEquals(4.5, result.get(0).averageRating());
+        assertEquals(7, result.get(0).actionCount());
+        assertEquals(5, result.get(0).orderCount());
+    }
+
+    @Test
+    void recommendationsPreferUserRelatedCategoriesAndExplainReason() {
+        FakeItemDAO items = new FakeItemDAO();
+        items.rows = List.of(
+            Map.of("item_id", 3L, "title", "A型库存", "category_id", 4L, "amount", new BigDecimal("12.00"), "status", 1),
+            Map.of("item_id", 8L, "title", "O型库存", "category_id", 9L, "amount", new BigDecimal("20.00"), "status", 1)
+        );
+        items.item = Map.of("item_id", 3L, "title", "A型库存", "category_id", 4L, "amount", new BigDecimal("12.00"), "status", 1);
+        FakeCategoryDAO categories = new FakeCategoryDAO();
+        categories.rows = List.of(Map.of("category_id", 4L, "name", "A型"), Map.of("category_id", 9L, "name", "O型"));
+        FakeOrderDAO orders = new FakeOrderDAO();
+        orders.rows = List.of(Map.of("order_id", 21L, "item_id", 3L));
+
+        List<RecommendationDTO> result = new BusinessService(items, categories, new FakeDetailDAO(), new FakeCommentDAO(), orders, new FakeUserDAO(), new FakeLogDAO(), new FakeSystemLogDAO())
+            .recommendItems(2L, 5);
+
+        assertEquals(2, result.size());
+        assertEquals(3L, result.get(0).item().itemId());
+        assertEquals("你最近申请过同类库存", result.get(0).reason());
+        assertEquals("可用库存推荐", result.get(1).reason());
+    }
+
     private static Map<String, Object> item(long id, BigDecimal amount, int status) {
         Map<String, Object> row = new HashMap<>();
         row.put("item_id", id);
@@ -592,6 +653,7 @@ class BusinessServiceTest {
         private String itemId;
         private String actionType;
         private List<Document> topItems = List.of();
+        private List<Document> userLogs = List.of();
 
         @Override
         public void insertActionLog(String userId, String itemId, String actionType, int durationSeconds, Document clientInfo) {
@@ -603,6 +665,11 @@ class BusinessServiceTest {
         @Override
         public List<Document> topItems(int limit) {
             return topItems;
+        }
+
+        @Override
+        public List<Document> findByUserId(String userId, int limit) {
+            return userLogs;
         }
     }
 
@@ -645,6 +712,7 @@ class BusinessServiceTest {
         private boolean deleteOwnSucceeds;
         private long deletedOrderId;
         private boolean deleteSucceeds;
+        private List<Map<String, Object>> itemOrderCounts = List.of();
 
         @Override
         public long createOrder(long userId, long itemId, BigDecimal amount) {
@@ -662,6 +730,11 @@ class BusinessServiceTest {
         @Override
         public List<Map<String, Object>> findAll() {
             return allRows;
+        }
+
+        @Override
+        public List<Map<String, Object>> countByItem() {
+            return itemOrderCounts;
         }
 
         @Override

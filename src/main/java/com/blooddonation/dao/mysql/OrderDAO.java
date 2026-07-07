@@ -53,6 +53,16 @@ public class OrderDAO extends BaseDAO {
         });
     }
 
+    public List<Map<String, Object>> countByItem() {
+        String sql = """
+            SELECT item_id, COUNT(*) AS order_count
+            FROM orders
+            GROUP BY item_id
+            """;
+        return queryList(sql, statement -> {
+        });
+    }
+
     public boolean updateStatus(long orderId, int status) {
         String sql = "UPDATE orders SET status = ? WHERE order_id = ? AND status = 0";
         return update(sql, statement -> {

@@ -3,6 +3,8 @@ package com.blooddonation.ui;
 import com.blooddonation.service.AuthService.UserSession;
 import com.blooddonation.service.BusinessService;
 import com.blooddonation.service.BusinessService.BusinessResult;
+import com.blooddonation.dto.ItemInsightDTO;
+import com.blooddonation.dto.RecommendationDTO;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -86,7 +88,7 @@ public class DashboardFrame extends JFrame {
 
         JPanel nav = new JPanel(new GridLayout(0, 1, 0, 10));
         nav.setBackground(Ui.SIDEBAR);
-        String[] modules = {"业务数据", "订单记录", "分类管理", "统计报表", "系统日志"};
+        String[] modules = {"业务数据", "推荐批次", "订单记录", "分类管理", "统计报表", "系统日志"};
         for (String module : modules) {
             JButton button = new JButton(module);
             button.setFocusPainted(false);
@@ -118,6 +120,10 @@ public class DashboardFrame extends JFrame {
             showOrderPanel(session);
             return;
         }
+        if ("推荐批次".equals(module)) {
+            showRecommendPanel(session);
+            return;
+        }
         if ("分类管理".equals(module)) {
             showCategoryPanel(session);
             return;
@@ -134,10 +140,10 @@ public class DashboardFrame extends JFrame {
     private void showBusinessPanel(UserSession session) {
         resetMain("业务数据", "维护血液库存批次，双击表格行打开详情。");
 
-        DefaultTableModel model = tableModel("item_id", "库存批次", "分类", "数量", "状态");
+        DefaultTableModel model = tableModel("item_id", "库存批次", "分类", "血型", "数量", "状态", "评论", "行为", "订单");
         JTable table = table(model);
         hideFirstColumn(table);
-        setColumnWidths(table, 0, 360, 120, 120, 100);
+        setColumnWidths(table, 0, 280, 110, 90, 90, 90, 90, 90, 90);
 
         JPanel tabs = tabs();
         table.addMouseListener(new MouseAdapter() {
@@ -169,7 +175,7 @@ public class DashboardFrame extends JFrame {
                 }
                 if (confirm("确认删除选中的库存批次？")) {
                     showResult(businessService.deleteItem(itemId));
-                    loadItems(model);
+                    reloadItemRows(model);
                     closeDetailTab(tabs, "item:" + itemId);
                 }
             });
@@ -179,7 +185,48 @@ public class DashboardFrame extends JFrame {
         JPanel listPanel = section("库存列表", new JScrollPane(table), isAdmin(session) ? actions : null);
         tabs.add(listPanel, "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
-        loadItems(model);
+        reloadItemRows(model);
+        refreshMain();
+    }
+
+    private void showRecommendPanel(UserSession session) {
+        resetMain("推荐批次", "根据你的记录和热门数据推荐可用库存批次。");
+
+        DefaultTableModel model = tableModel("item_id", "库存批次", "分类", "血型", "数量", "评分", "推荐理由");
+        JTable table = table(model);
+        hideFirstColumn(table);
+        setColumnWidths(table, 0, 300, 110, 90, 90, 90, 220);
+
+        JPanel tabs = tabs();
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2) {
+                    Long itemId = selectedId(table);
+                    if (itemId != null) {
+                        openInsightDetailTab(tabs, itemId, session);
+                    }
+                }
+            }
+        });
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        JButton applyButton = new JButton("申请");
+        Ui.primaryButton(applyButton, 112);
+        applyButton.addActionListener(event -> {
+            Long itemId = selectedId(table);
+            if (itemId == null) {
+                warn("请先选择推荐批次。");
+                return;
+            }
+            showApplyOrderDialog(session, itemId, itemTitle(table, itemId));
+        });
+        actions.add(applyButton);
+
+        tabs.add(section("推荐列表", new JScrollPane(table), actions), "list");
+        mainPanel.add(tabs, BorderLayout.CENTER);
+        loadRecommendations(model, session);
         refreshMain();
     }
 
@@ -216,7 +263,7 @@ public class DashboardFrame extends JFrame {
                 );
                 showResult(result);
                 if (result.success()) {
-                    loadItems(model);
+                    reloadItemRows(model);
                     dialog.dispose();
                 }
             } catch (RuntimeException ex) {
@@ -285,7 +332,7 @@ public class DashboardFrame extends JFrame {
                 );
                 showResult(result);
                 if (result.success()) {
-                    loadItems(model);
+                    reloadItemRows(model);
                     onSaved.run();
                     dialog.dispose();
                 }
@@ -613,6 +660,40 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    private void showApplyOrderDialog(UserSession session, long itemId, String itemTitle) {
+        JDialog dialog = new JDialog(this, "申请用血", true);
+        JSpinner amountSpinner = amountSpinner();
+
+        JPanel form = formPanel();
+        form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
+        addFormField(form, 0, 0, 2, "库存批次", infoBlock("批次", itemTitle));
+        addFormField(form, 1, 0, 2, "数量", amountSpinner);
+
+        JButton cancelButton = new JButton("取消");
+        Ui.textButton(cancelButton);
+        cancelButton.addActionListener(event -> dialog.dispose());
+        JButton saveButton = new JButton("申请");
+        Ui.primaryButton(saveButton, 112);
+        saveButton.addActionListener(event -> {
+            try {
+                BusinessResult result = businessService.createOrder(session.userId(), itemId, spinnerAmount(amountSpinner));
+                showResult(result);
+                if (result.success()) {
+                    dialog.dispose();
+                }
+            } catch (RuntimeException ex) {
+                warn("申请失败，请检查数据库连接。");
+            }
+        });
+
+        dialog.setContentPane(dialogContent("申请用血", form, cancelButton, saveButton));
+        dialog.getRootPane().setDefaultButton(saveButton);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(560, 320));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void showEditOwnOrderDialog(long orderId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "编辑用血申请", true);
         JComboBox<Option> itemBox = new JComboBox<>();
@@ -840,7 +921,7 @@ public class DashboardFrame extends JFrame {
             deleteButton.addActionListener(event -> {
                 if (confirm("确认删除该库存批次？")) {
                     showResult(businessService.deleteItem(itemId));
-                    loadItems(model);
+                    reloadItemRows(model);
                     closeDetailTab(tabs, key);
                 }
             });
@@ -958,6 +1039,27 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("分类", table, categoryId, 1), detail, key);
     }
 
+    private void openInsightDetailTab(JPanel tabs, long itemId, UserSession session) {
+        String key = "insight:" + itemId;
+        if (selectDetailTab(tabs, key)) {
+            return;
+        }
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setBackground(Ui.PANEL);
+        JButton closeButton = new JButton("关闭");
+        Ui.textButton(closeButton);
+        closeButton.addActionListener(event -> closeDetailTab(tabs, key));
+        actions.add(closeButton);
+        JButton applyButton = new JButton("申请");
+        Ui.primaryButton(applyButton, 112);
+        applyButton.addActionListener(event -> showApplyOrderDialog(session, itemId, insightTitle(itemId)));
+        actions.add(applyButton);
+
+        JPanel detail = detailPage("批次综合信息", insightDetailBody(itemId), actions);
+        addDetailTab(tabs, "综合信息", detail, key);
+    }
+
     private void addOrderDeleteButton(
         JPanel actions,
         JPanel tabs,
@@ -989,6 +1091,7 @@ public class DashboardFrame extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        javax.swing.SwingUtilities.invokeLater(() -> scroll.getViewport().setViewPosition(new java.awt.Point(0, 0)));
         return section(title, scroll, actions);
     }
 
@@ -1035,11 +1138,16 @@ public class DashboardFrame extends JFrame {
         JPanel body = detailBody();
         for (int i = 0; i < table.getModel().getRowCount(); i++) {
             if (((Number) table.getModel().getValueAt(i, 0)).longValue() == itemId) {
+                DefaultTableModel model = (DefaultTableModel) table.getModel();
+                int bloodTypeColumn = model.findColumn("血型");
+                int amountColumn = model.findColumn("数量");
+                int statusColumn = model.findColumn("状态");
                 JPanel grid = detailGrid();
-                addInfo(grid, 0, 0, 2, "库存批次", table.getModel().getValueAt(i, 1));
-                addInfo(grid, 1, 0, 1, "分类", table.getModel().getValueAt(i, 2));
-                addInfo(grid, 1, 1, 1, "数量", table.getModel().getValueAt(i, 3));
-                addInfo(grid, 2, 0, 2, "状态", table.getModel().getValueAt(i, 4));
+                addInfo(grid, 0, 0, 2, "库存批次", model.getValueAt(i, 1));
+                addInfo(grid, 1, 0, 1, "分类", model.getValueAt(i, 2));
+                addInfo(grid, 1, 1, 1, "血型", bloodTypeColumn >= 0 ? model.getValueAt(i, bloodTypeColumn) : "未填写");
+                addInfo(grid, 2, 0, 1, "数量", model.getValueAt(i, amountColumn));
+                addInfo(grid, 2, 1, 1, "状态", model.getValueAt(i, statusColumn));
                 body.add(grid, BorderLayout.NORTH);
                 body.add(itemExtraPanel(itemId, session, onChanged), BorderLayout.CENTER);
                 return body;
@@ -1079,6 +1187,31 @@ public class DashboardFrame extends JFrame {
             }
         }
         body.add(emptyDetail("该分类未在当前列表中。"), BorderLayout.CENTER);
+        return body;
+    }
+
+    private JPanel insightDetailBody(long itemId) {
+        JPanel body = detailBody();
+        ItemInsightDTO insight = findInsight(itemId);
+        if (insight == null) {
+            body.add(emptyDetail("该库存批次未在当前列表中。"), BorderLayout.CENTER);
+            return body;
+        }
+
+        JPanel grid = detailGrid();
+        addInfo(grid, 0, 0, 2, "库存批次", insight.title());
+        addInfo(grid, 1, 0, 1, "分类", insight.categoryName());
+        addInfo(grid, 1, 1, 1, "血型", blankText(insight.bloodType()));
+        addInfo(grid, 2, 0, 1, "数量", amountText(insight.amount()));
+        addInfo(grid, 2, 1, 1, "状态", itemStatus(insight.status()));
+        addInfo(grid, 3, 0, 1, "评论", insight.commentCount() + " 条");
+        addInfo(grid, 3, 1, 1, "评分", insight.averageRating() == 0D ? "暂无评分" : numberText(insight.averageRating()));
+        addInfo(grid, 4, 0, 1, "行为", insight.actionCount() + " 次");
+        addInfo(grid, 4, 1, 1, "订单", insight.orderCount() + " 条");
+        body.add(grid, BorderLayout.NORTH);
+        if (!insight.description().isBlank()) {
+            body.add(textBlock("详情说明", insight.description()), BorderLayout.CENTER);
+        }
         return body;
     }
 
@@ -1752,6 +1885,55 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    private void loadRecommendations(DefaultTableModel model, UserSession session) {
+        try {
+            model.setRowCount(0);
+            for (RecommendationDTO row : businessService.recommendItems(session.userId(), 20)) {
+                ItemInsightDTO item = row.item();
+                model.addRow(new Object[] {
+                    item.itemId(),
+                    item.title(),
+                    item.categoryName(),
+                    blankText(item.bloodType()),
+                    amountText(item.amount()),
+                    item.averageRating() == 0D ? "暂无" : numberText(item.averageRating()),
+                    row.reason()
+                });
+            }
+        } catch (RuntimeException ex) {
+            warn("推荐加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void loadInsights(DefaultTableModel model) {
+        try {
+            model.setRowCount(0);
+            for (ItemInsightDTO row : businessService.findItemInsights()) {
+                model.addRow(new Object[] {
+                    row.itemId(),
+                    row.title(),
+                    row.categoryName(),
+                    blankText(row.bloodType()),
+                    amountText(row.amount()),
+                    itemStatus(row.status()),
+                    row.commentCount(),
+                    row.actionCount(),
+                    row.orderCount()
+                });
+            }
+        } catch (RuntimeException ex) {
+            warn("综合查询加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void reloadItemRows(DefaultTableModel model) {
+        if (model.findColumn("评论") >= 0) {
+            loadInsights(model);
+        } else {
+            loadItems(model);
+        }
+    }
+
     private void loadOrders(DefaultTableModel model, UserSession session) {
         try {
             Map<Long, String> items = itemNames();
@@ -1851,6 +2033,24 @@ public class DashboardFrame extends JFrame {
         return names;
     }
 
+    private ItemInsightDTO findInsight(long itemId) {
+        try {
+            for (ItemInsightDTO row : businessService.findItemInsights()) {
+                if (row.itemId() == itemId) {
+                    return row;
+                }
+            }
+        } catch (RuntimeException ex) {
+            warn("综合信息加载失败，请检查数据库连接。");
+        }
+        return null;
+    }
+
+    private String insightTitle(long itemId) {
+        ItemInsightDTO insight = findInsight(itemId);
+        return insight == null ? "库存批次 " + itemId : insight.title();
+    }
+
     private String itemName(Map<Long, String> items, Object itemId) {
         if (itemId == null || "NONE".equals(String.valueOf(itemId))) {
             return "无关联批次";
@@ -1927,12 +2127,25 @@ public class DashboardFrame extends JFrame {
         return ((Number) value).longValue();
     }
 
+    private String itemTitle(JTable table, long itemId) {
+        for (int row = 0; row < table.getModel().getRowCount(); row++) {
+            if (((Number) table.getModel().getValueAt(row, 0)).longValue() == itemId) {
+                return String.valueOf(table.getModel().getValueAt(row, 1));
+            }
+        }
+        return "库存批次 " + itemId;
+    }
+
     private String itemStatus(Object status) {
         return ((Number) status).intValue() == 1 ? "可用" : "停用";
     }
 
     private String amountText(Object amount) {
         return amount instanceof BigDecimal value ? value.toPlainString() : String.valueOf(amount);
+    }
+
+    private String blankText(String value) {
+        return value == null || value.isBlank() ? "未填写" : value;
     }
 
     private String numberText(Object value) {
