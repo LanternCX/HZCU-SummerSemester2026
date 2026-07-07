@@ -5,6 +5,12 @@ const clientTypes = ["DESKTOP", "WEB", "MOBILE"];
 const logTypes = ["LOGIN", "LOGIN_FAILED", "ORDER_APPROVE", "ITEM_UPDATE", "SYSTEM_ERROR"];
 const logLevels = ["INFO", "WARN", "ERROR"];
 const tags = [["查询", "完整"], ["操作", "稳定"], ["资料", "待确认"], ["流程", "及时"]];
+const bloodTypes = [
+  "A型", "B型", "AB型", "O型", "A型",
+  "B型", "AB型", "O型", "A型", "B型",
+  "AB型", "O型", "A型", "B型", "AB型",
+  "O型", "A型", "B型", "AB型", "O型"
+];
 
 const itemDetails = [];
 for (let i = 1; i <= 20; i += 1) {
@@ -14,7 +20,8 @@ for (let i = 1; i <= 20; i += 1) {
     images: [`image-${String(i).padStart(3, "0")}.png`],
     metadata: {
       language: "zh-CN",
-      source: "mock"
+      source: "mock",
+      blood_type: bloodTypes[i - 1]
     },
     updated_at: new Date(Date.UTC(2026, 6, 1 + (i % 5), 8, i, 0))
   });

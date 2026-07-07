@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -33,6 +35,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.RowFilter;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
@@ -41,8 +44,12 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import org.bson.Document;
 
@@ -182,7 +189,11 @@ public class DashboardFrame extends JFrame {
             actions.add(deleteButton);
         }
 
-        JPanel listPanel = section("库存列表", new JScrollPane(table), isAdmin(session) ? actions : null);
+        JPanel listPanel = section(
+            "库存列表",
+            filteredTablePanel(table, filterBar(table, new FilterChoice("状态", 5), new FilterChoice("血型", 3), new FilterChoice("分类", 2))),
+            isAdmin(session) ? actions : null
+        );
         tabs.add(listPanel, "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         reloadItemRows(model);
@@ -234,6 +245,7 @@ public class DashboardFrame extends JFrame {
         JDialog dialog = new JDialog(this, "新增库存", true);
         JTextField titleField = field();
         JComboBox<Option> categoryBox = new JComboBox<>();
+        Ui.comboBox(categoryBox, 240);
         loadCategories(categoryBox);
         JSpinner amountSpinner = amountSpinner();
         JComboBox<String> bloodTypeBox = bloodTypeBox();
@@ -290,11 +302,13 @@ public class DashboardFrame extends JFrame {
         JTextField titleField = field();
         titleField.setText(String.valueOf(item.get("title")));
         JComboBox<Option> categoryBox = new JComboBox<>();
+        Ui.comboBox(categoryBox, 240);
         loadCategories(categoryBox);
         selectOption(categoryBox, ((Number) item.get("category_id")).longValue());
         JSpinner amountSpinner = amountSpinner();
         amountSpinner.setValue(((BigDecimal) item.get("amount")).doubleValue());
         JComboBox<String> statusBox = new JComboBox<>(new String[] {"停用", "可用"});
+        Ui.comboBox(statusBox, 240);
         statusBox.setSelectedIndex(((Number) item.get("status")).intValue());
         JComboBox<String> bloodTypeBox = bloodTypeBox();
         JTextArea descriptionArea = area(5);
@@ -352,10 +366,12 @@ public class DashboardFrame extends JFrame {
     private void showOrderPanel(UserSession session) {
         resetMain("订单记录", "查看用血记录，双击表格行打开详情。");
 
-        DefaultTableModel model = tableModel("order_id", "库存批次", "数量", "状态");
+        DefaultTableModel model = tableModel("order_id", "库存批次", "数量", "状态", "分类", "血型");
         JTable table = table(model);
         hideFirstColumn(table);
-        setColumnWidths(table, 0, 420, 120, 120);
+        hideColumn(table, 4);
+        hideColumn(table, 5);
+        setColumnWidths(table, 0, 420, 120, 120, 0, 0);
 
         JPanel tabs = tabs();
         table.addMouseListener(new MouseAdapter() {
@@ -394,7 +410,11 @@ public class DashboardFrame extends JFrame {
             actions.add(deleteButton);
         }
 
-        tabs.add(section("我的记录", new JScrollPane(table), actions.getComponentCount() > 0 ? actions : null), "list");
+        tabs.add(section(
+            "我的记录",
+            filteredTablePanel(table, filterBar(table, new FilterChoice("状态", 3), new FilterChoice("血型", 5), new FilterChoice("分类", 4))),
+            actions.getComponentCount() > 0 ? actions : null
+        ), "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadOrders(model, session);
         refreshMain();
@@ -478,16 +498,25 @@ public class DashboardFrame extends JFrame {
 
         DefaultTableModel actions = tableModel("用户", "库存批次", "操作", "时间");
         JTable actionsTable = table(actions);
-        tabs.addTab("行为日志", section("行为日志", new JScrollPane(actionsTable)));
+        tabs.addTab("行为日志", section(
+            "行为日志",
+            filteredTablePanel(actionsTable, filterBar(actionsTable, new FilterChoice("操作", 2), new FilterChoice("批次", 1)))
+        ));
 
         DefaultTableModel logins = tableModel("用户", "级别", "消息", "时间");
         JTable loginTable = table(logins);
         if (isAdmin(session)) {
-            tabs.addTab("登录日志", section("登录日志", new JScrollPane(loginTable)));
+            tabs.addTab("登录日志", section(
+                "登录日志",
+                filteredTablePanel(loginTable, filterBar(loginTable, new FilterChoice("级别", 1)))
+            ));
 
             DefaultTableModel audit = tableModel("日志类型", "级别", "数量", "最近时间");
             JTable auditTable = table(audit);
-            tabs.addTab("操作审计", section("操作审计", new JScrollPane(auditTable)));
+            tabs.addTab("操作审计", section(
+                "操作审计",
+                filteredTablePanel(auditTable, filterBar(auditTable, new FilterChoice("级别", 1), new FilterChoice("类型", 0)))
+            ));
             loadLogs(actions, logins, audit, session);
         } else {
             loadLogs(actions, logins, null, session);
@@ -501,6 +530,7 @@ public class DashboardFrame extends JFrame {
         JDialog dialog = new JDialog(this, "新增分类", true);
         JTextField nameField = field();
         JComboBox<Option> parentBox = new JComboBox<>();
+        Ui.comboBox(parentBox, 240);
         loadParentCategories(parentBox, null);
 
         JPanel form = categoryForm(nameField, parentBox);
@@ -577,6 +607,7 @@ public class DashboardFrame extends JFrame {
         JTextField nameField = field();
         nameField.setText(String.valueOf(category.get("name")));
         JComboBox<Option> parentBox = new JComboBox<>();
+        Ui.comboBox(parentBox, 240);
         loadParentCategories(parentBox, categoryId);
         Object parentId = category.get("parent_id");
         if (parentId != null) {
@@ -623,6 +654,7 @@ public class DashboardFrame extends JFrame {
     private void showCreateOrderDialog(UserSession session, DefaultTableModel model) {
         JDialog dialog = new JDialog(this, "创建用血记录", true);
         JComboBox<Option> itemBox = new JComboBox<>();
+        Ui.comboBox(itemBox, 240);
         loadItemOptions(itemBox);
         JSpinner amountSpinner = amountSpinner();
 
@@ -699,6 +731,7 @@ public class DashboardFrame extends JFrame {
     private void showEditOwnOrderDialog(long orderId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "编辑用血申请", true);
         JComboBox<Option> itemBox = new JComboBox<>();
+        Ui.comboBox(itemBox, 240);
         loadItemOptions(itemBox);
         JSpinner amountSpinner = amountSpinner();
         findOrderRow(model, orderId).ifPresent(row -> {
@@ -742,6 +775,7 @@ public class DashboardFrame extends JFrame {
     private void showUpdateOrderDialog(long orderId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "更新处理状态", true);
         JComboBox<String> statusBox = new JComboBox<>(new String[] {"待处理", "已完成", "已取消"});
+        Ui.comboBox(statusBox, 240);
 
         JPanel form = formPanel();
         form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
@@ -821,6 +855,114 @@ public class DashboardFrame extends JFrame {
         panel.add(header, BorderLayout.NORTH);
         panel.add(body, BorderLayout.CENTER);
         return panel;
+    }
+
+    private JPanel filteredTablePanel(JTable table, JPanel filters) {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(Ui.PANEL);
+        panel.add(filters, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel filterBar(JTable table, FilterChoice... choices) {
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>((DefaultTableModel) table.getModel());
+        table.setRowSorter(sorter);
+
+        JTextField keyword = new JTextField(18);
+        Ui.field(keyword);
+        keyword.setPreferredSize(new Dimension(320, 44));
+        keyword.setMinimumSize(new Dimension(320, 44));
+
+        List<JComboBox<String>> boxes = new ArrayList<>();
+        JPanel panel = new JPanel(new GridLayout(1, choices.length + 1, 12, 0));
+        panel.setBackground(Ui.PANEL);
+        panel.add(filterBlock("关键词", keyword));
+        for (FilterChoice choice : choices) {
+            JComboBox<String> box = new JComboBox<>();
+            Ui.comboBox(box, 180);
+            boxes.add(box);
+            panel.add(filterBlock(choice.label(), box));
+        }
+
+        Runnable apply = () -> sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                String query = keyword.getText().trim().toLowerCase();
+                if (!query.isEmpty() && !rowContains(entry, query)) {
+                    return false;
+                }
+                for (int i = 0; i < choices.length; i++) {
+                    String selected = String.valueOf(boxes.get(i).getSelectedItem());
+                    if (!"全部".equals(selected) && !selected.equals(cellText(entry, choices[i].column()))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        });
+        Runnable refreshOptions = () -> {
+            for (int i = 0; i < choices.length; i++) {
+                Object selectedItem = boxes.get(i).getSelectedItem();
+                String selected = selectedItem == null ? "全部" : String.valueOf(selectedItem);
+                DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+                model.addElement("全部");
+                for (String value : columnValues(table, choices[i].column())) {
+                    model.addElement(value);
+                }
+                boxes.get(i).setModel(model);
+                boxes.get(i).setSelectedItem(selected.isBlank() ? "全部" : selected);
+            }
+        };
+
+        keyword.getDocument().addDocumentListener(new SimpleDocumentListener(apply));
+        for (JComboBox<String> box : boxes) {
+            box.addActionListener(event -> apply.run());
+        }
+        table.getModel().addTableModelListener(event -> SwingUtilities.invokeLater(() -> {
+            refreshOptions.run();
+            apply.run();
+        }));
+        refreshOptions.run();
+        apply.run();
+        return panel;
+    }
+
+    private JPanel filterBlock(String labelText, java.awt.Component field) {
+        JPanel block = new JPanel(new BorderLayout(0, 4));
+        block.setBackground(Ui.PANEL);
+        JLabel label = new JLabel(labelText);
+        label.setForeground(new Color(91, 94, 102));
+        label.setFont(Ui.font(12, Font.BOLD));
+        block.add(label, BorderLayout.NORTH);
+        block.add(field, BorderLayout.CENTER);
+        return block;
+    }
+
+    private Set<String> columnValues(JTable table, int column) {
+        Set<String> values = new LinkedHashSet<>();
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        for (int row = 0; row < model.getRowCount(); row++) {
+            String value = String.valueOf(model.getValueAt(row, column));
+            if (!value.isBlank()) {
+                values.add(value);
+            }
+        }
+        return values;
+    }
+
+    private boolean rowContains(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry, String query) {
+        for (int column = 0; column < entry.getValueCount(); column++) {
+            if (cellText(entry, column).toLowerCase().contains(query)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String cellText(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry, int column) {
+        Object value = entry.getValue(column);
+        return value == null ? "" : String.valueOf(value);
     }
 
     private JPanel tabs() {
@@ -1495,11 +1637,11 @@ public class DashboardFrame extends JFrame {
         JDialog dialog = new JDialog(this, "发表评论", true);
         JTextArea content = area(3);
         JSpinner rating = new JSpinner(new SpinnerNumberModel(5, 1, 5, 1));
-        rating.setPreferredSize(new Dimension(72, 40));
+        Ui.spinner(rating, 120);
         JTextField tags = field();
         JPanel form = formPanel();
         form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
-        addFormField(form, 0, 0, 2, "评论内容", new JScrollPane(content));
+        addFormField(form, 0, 0, 2, "评论内容", areaScroll(content));
         addFormField(form, 1, 0, 1, "评分", rating);
         addFormField(form, 1, 1, 1, "标签", tags);
 
@@ -1620,7 +1762,7 @@ public class DashboardFrame extends JFrame {
             addFormField(form, 2, 0, 1, "状态", statusBox);
             addFormField(form, 2, 1, 1, "血型", bloodTypeBox);
         }
-        addFormField(form, 3, 0, 2, "详情", new JScrollPane(descriptionArea));
+        addFormField(form, 3, 0, 2, "详情", areaScroll(descriptionArea));
         return form;
     }
 
@@ -1646,16 +1788,14 @@ public class DashboardFrame extends JFrame {
     private JTextField field() {
         JTextField field = new JTextField(18);
         Ui.field(field);
-        field.setPreferredSize(new Dimension(240, 40));
-        field.setMinimumSize(new Dimension(220, 40));
+        field.setPreferredSize(new Dimension(240, 44));
+        field.setMinimumSize(new Dimension(220, 44));
         return field;
     }
 
     private JSpinner amountSpinner() {
         JSpinner spinner = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 99999.0, 1.0));
-        spinner.setFont(Ui.font(16, Font.PLAIN));
-        spinner.setPreferredSize(new Dimension(240, 40));
-        spinner.setMinimumSize(new Dimension(220, 40));
+        Ui.spinner(spinner, 240);
         return spinner;
     }
 
@@ -1665,8 +1805,7 @@ public class DashboardFrame extends JFrame {
 
     private JComboBox<String> bloodTypeBox() {
         JComboBox<String> box = new JComboBox<>(new String[] {"A型", "B型", "AB型", "O型"});
-        box.setFont(Ui.font(16, Font.PLAIN));
-        box.setPreferredSize(new Dimension(240, 40));
+        Ui.comboBox(box, 240);
         return box;
     }
 
@@ -1674,9 +1813,15 @@ public class DashboardFrame extends JFrame {
         JTextArea area = new JTextArea(rows, 18);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
-        area.setFont(Ui.font(15, Font.PLAIN));
-        area.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        Ui.area(area);
         return area;
+    }
+
+    private JScrollPane areaScroll(JTextArea area) {
+        JScrollPane scroll = new JScrollPane(area);
+        scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        scroll.getViewport().setBackground(Ui.PANEL);
+        return scroll;
     }
 
     private DefaultTableModel tableModel(String... columns) {
@@ -1723,9 +1868,13 @@ public class DashboardFrame extends JFrame {
     }
 
     private void hideFirstColumn(JTable table) {
-        table.getColumnModel().getColumn(0).setMinWidth(0);
-        table.getColumnModel().getColumn(0).setMaxWidth(0);
-        table.getColumnModel().getColumn(0).setPreferredWidth(0);
+        hideColumn(table, 0);
+    }
+
+    private void hideColumn(JTable table, int column) {
+        table.getColumnModel().getColumn(column).setMinWidth(0);
+        table.getColumnModel().getColumn(column).setMaxWidth(0);
+        table.getColumnModel().getColumn(column).setPreferredWidth(0);
     }
 
     private void addRow(JPanel panel, int row, String labelText, java.awt.Component field) {
@@ -1938,14 +2087,17 @@ public class DashboardFrame extends JFrame {
 
     private void loadOrders(DefaultTableModel model, UserSession session) {
         try {
-            Map<Long, String> items = itemNames();
+            Map<Long, ItemInsightDTO> items = itemInsightsById();
             model.setRowCount(0);
             for (Map<String, Object> row : businessService.findOrders(session.userId(), isAdmin(session))) {
+                ItemInsightDTO item = items.get(((Number) row.get("item_id")).longValue());
                 model.addRow(new Object[] {
                     row.get("order_id"),
-                    items.getOrDefault(((Number) row.get("item_id")).longValue(), "库存批次已删除"),
+                    item == null ? "库存批次已删除" : item.title(),
                     amountText(row.get("amount")),
-                    orderStatus(row.get("status"))
+                    orderStatus(row.get("status")),
+                    item == null ? "未分类" : item.categoryName(),
+                    item == null ? "未填写" : blankText(item.bloodType())
                 });
             }
         } catch (RuntimeException ex) {
@@ -2036,6 +2188,14 @@ public class DashboardFrame extends JFrame {
             names.put(((Number) row.get("item_id")).longValue(), String.valueOf(row.get("title")));
         }
         return names;
+    }
+
+    private Map<Long, ItemInsightDTO> itemInsightsById() {
+        java.util.HashMap<Long, ItemInsightDTO> items = new java.util.HashMap<>();
+        for (ItemInsightDTO row : businessService.findItemInsights()) {
+            items.put(row.itemId(), row);
+        }
+        return items;
     }
 
     private ItemInsightDTO findInsight(long itemId) {
@@ -2199,6 +2359,32 @@ public class DashboardFrame extends JFrame {
     }
 
     private record ChartRow(String label, double value) {
+    }
+
+    private record FilterChoice(String label, int column) {
+    }
+
+    private static class SimpleDocumentListener implements DocumentListener {
+        private final Runnable action;
+
+        SimpleDocumentListener(Runnable action) {
+            this.action = action;
+        }
+
+        @Override
+        public void insertUpdate(DocumentEvent event) {
+            action.run();
+        }
+
+        @Override
+        public void removeUpdate(DocumentEvent event) {
+            action.run();
+        }
+
+        @Override
+        public void changedUpdate(DocumentEvent event) {
+            action.run();
+        }
     }
 
     private static class BarChartPanel extends JPanel {
