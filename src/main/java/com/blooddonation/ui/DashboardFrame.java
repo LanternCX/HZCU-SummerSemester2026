@@ -169,11 +169,11 @@ public class DashboardFrame extends JFrame {
         actions.setBackground(Ui.PANEL);
         if (isAdmin(session)) {
             JButton addButton = new JButton("新增");
-            Ui.primaryButton(addButton, 128);
+            Ui.toolbarButton(addButton, 96, true);
             addButton.addActionListener(event -> showCreateItemDialog(model));
             actions.add(addButton);
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 128);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 Long itemId = selectedId(table);
                 if (itemId == null) {
@@ -224,7 +224,7 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton applyButton = new JButton("申请");
-        Ui.primaryButton(applyButton, 112);
+        Ui.toolbarButton(applyButton, 96, true);
         applyButton.addActionListener(event -> {
             Long itemId = selectedId(table);
             if (itemId == null) {
@@ -235,7 +235,7 @@ public class DashboardFrame extends JFrame {
         });
         actions.add(applyButton);
 
-        tabs.add(section("推荐列表", new JScrollPane(table), actions), "list");
+        tabs.add(section("推荐列表", tableScroll(table), actions), "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadRecommendations(model, session);
         refreshMain();
@@ -389,12 +389,12 @@ public class DashboardFrame extends JFrame {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
         JButton createButton = new JButton("新增");
-        Ui.primaryButton(createButton, 128);
+        Ui.toolbarButton(createButton, 96, true);
         createButton.addActionListener(event -> showCreateOrderDialog(session, model));
         actions.add(createButton);
         if (isAdmin(session)) {
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 128);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 Long orderId = selectedId(table);
                 if (orderId == null) {
@@ -445,12 +445,12 @@ public class DashboardFrame extends JFrame {
         actions.setBackground(Ui.PANEL);
         if (isAdmin(session)) {
             JButton addButton = new JButton("新增");
-            Ui.primaryButton(addButton, 128);
+            Ui.toolbarButton(addButton, 96, true);
             addButton.addActionListener(event -> showCreateCategoryDialog(model));
             actions.add(addButton);
 
             JButton deleteButton = new JButton("删除");
-            Ui.primaryButton(deleteButton, 128);
+            Ui.toolbarButton(deleteButton, 96, false);
             deleteButton.addActionListener(event -> {
                 Long categoryId = selectedId(table);
                 if (categoryId == null) {
@@ -469,7 +469,7 @@ public class DashboardFrame extends JFrame {
             actions.add(deleteButton);
         }
 
-        tabs.add(section("分类列表", new JScrollPane(table), isAdmin(session) ? actions : null), "list");
+        tabs.add(section("分类列表", tableScroll(table), isAdmin(session) ? actions : null), "list");
         mainPanel.add(tabs, BorderLayout.CENTER);
         loadCategories(model);
         refreshMain();
@@ -481,10 +481,10 @@ public class DashboardFrame extends JFrame {
         JTabbedPane tabs = innerTabs();
 
         BarChartPanel topItems = new BarChartPanel(0, "");
-        tabs.addTab("热门批次", section("热门批次", new JScrollPane(topItems)));
+        tabs.addTab("热门批次", section("热门批次", chartScroll(topItems)));
 
         BarChartPanel ratings = new BarChartPanel(5, " / 5");
-        tabs.addTab("评论评分", section("评论评分", new JScrollPane(ratings)));
+        tabs.addTab("评论评分", section("评论评分", chartScroll(ratings)));
 
         loadStatistics(topItems, ratings);
         mainPanel.add(tabs, BorderLayout.CENTER);
@@ -861,8 +861,16 @@ public class DashboardFrame extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setBackground(Ui.PANEL);
         panel.add(filters, BorderLayout.NORTH);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(tableScroll(table), BorderLayout.CENTER);
         return panel;
+    }
+
+    private JScrollPane tableScroll(JTable table) {
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        scroll.getViewport().setBackground(Ui.PANEL);
+        scroll.setBackground(Ui.PANEL);
+        return scroll;
     }
 
     private JPanel filterBar(JTable table, FilterChoice... choices) {
@@ -979,6 +987,8 @@ public class DashboardFrame extends JFrame {
                 super.installDefaults();
                 tabAreaInsets = new Insets(0, 0, 0, 0);
                 contentBorderInsets = new Insets(0, 0, 0, 0);
+                tabInsets = new Insets(10, 18, 10, 18);
+                selectedTabPadInsets = new Insets(0, 0, 0, 0);
             }
 
             @Override
@@ -1009,8 +1019,12 @@ public class DashboardFrame extends JFrame {
                 int h,
                 boolean isSelected
             ) {
-                g.setColor(isSelected ? Ui.PANEL : Ui.PAGE);
+                g.setColor(Ui.PAGE);
                 g.fillRect(x, y, w, h);
+                if (isSelected) {
+                    g.setColor(Ui.PRIMARY);
+                    g.fillRect(x + 14, y + h - 3, w - 28, 3);
+                }
             }
 
             @Override
@@ -1025,11 +1039,19 @@ public class DashboardFrame extends JFrame {
             ) {
             }
         });
-        tabs.setFont(Ui.font(15, Font.BOLD));
+        tabs.setFont(Ui.font(14, Font.BOLD));
         tabs.setBackground(Ui.PAGE);
         tabs.setForeground(Ui.TEXT);
         tabs.setBorder(BorderFactory.createEmptyBorder());
         return tabs;
+    }
+
+    private JScrollPane chartScroll(BarChartPanel chart) {
+        JScrollPane scroll = new JScrollPane(chart);
+        scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        scroll.getViewport().setBackground(Ui.PANEL);
+        scroll.setBackground(Ui.PANEL);
+        return scroll;
     }
 
     private void openItemDetailTab(
@@ -1835,28 +1857,36 @@ public class DashboardFrame extends JFrame {
 
     private JTable table(DefaultTableModel model) {
         JTable table = new JTable(model);
-        table.setRowHeight(36);
+        table.setRowHeight(40);
         table.setFont(Ui.font(14, Font.PLAIN));
         table.getTableHeader().setFont(Ui.font(14, Font.BOLD));
         table.getTableHeader().setBackground(new Color(238, 235, 229));
         table.getTableHeader().setForeground(Ui.TEXT);
+        table.getTableHeader().setPreferredSize(new Dimension(0, 34));
+        table.getTableHeader().setReorderingAllowed(false);
+        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Ui.BORDER));
         DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
         headerRenderer.setBackground(new Color(238, 235, 229));
         headerRenderer.setForeground(Ui.TEXT);
         headerRenderer.setFont(Ui.font(14, Font.BOLD));
-        headerRenderer.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, Ui.BORDER));
+        headerRenderer.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, Ui.BORDER),
+            BorderFactory.createEmptyBorder(0, 8, 0, 8)
+        ));
         for (int i = 0; i < table.getColumnModel().getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
         }
-        table.setGridColor(Ui.BORDER);
+        table.setGridColor(new Color(228, 224, 216));
         table.setShowVerticalLines(false);
+        table.setShowHorizontalLines(true);
         table.setSelectionBackground(new Color(248, 226, 228));
         table.setSelectionForeground(Ui.TEXT);
         table.setFillsViewportHeight(true);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         table.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer();
-        cellRenderer.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
+        cellRenderer.setForeground(Ui.TEXT);
+        cellRenderer.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
         table.setDefaultRenderer(Object.class, cellRenderer);
         return table;
     }
@@ -2401,7 +2431,7 @@ public class DashboardFrame extends JFrame {
 
         void setRows(List<ChartRow> rows) {
             this.rows = rows == null ? List.of() : rows;
-            setPreferredSize(new Dimension(720, Math.max(360, this.rows.size() * 48 + 48)));
+            setPreferredSize(new Dimension(720, Math.max(360, this.rows.size() * 42 + 40)));
             revalidate();
             repaint();
         }
@@ -2411,30 +2441,32 @@ public class DashboardFrame extends JFrame {
             super.paintComponent(graphics);
             java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
             g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setFont(Ui.font(14, Font.BOLD));
             if (rows.isEmpty()) {
+                g.setFont(Ui.font(15, Font.PLAIN));
                 g.setColor(new Color(91, 94, 102));
-                g.drawString("暂无统计数据", 24, 42);
+                g.drawString("暂无统计数据", 28, 42);
                 g.dispose();
                 return;
             }
 
-            int labelWidth = Math.min(300, Math.max(180, getWidth() / 3));
-            int barX = labelWidth + 32;
-            int barMaxWidth = Math.max(80, getWidth() - barX - 72);
-            int y = 32;
+            int labelWidth = Math.min(360, Math.max(240, getWidth() / 3));
+            int barX = labelWidth + 28;
+            int barMaxWidth = Math.max(80, getWidth() - barX - 86);
+            int y = 28;
             double max = fixedMax > 0 ? fixedMax : rows.stream().mapToDouble(ChartRow::value).max().orElse(1);
             for (ChartRow row : rows) {
                 int barWidth = Math.max(4, (int) (barMaxWidth * (row.value() / max)));
+                g.setFont(Ui.font(14, Font.PLAIN));
                 g.setColor(Ui.TEXT);
-                g.drawString(ellipsis(row.label(), 18), 24, y + 18);
+                g.drawString(ellipsis(row.label(), 24), 28, y + 15);
                 g.setColor(new Color(238, 235, 229));
-                g.fillRoundRect(barX, y, barMaxWidth, 20, 6, 6);
+                g.fillRoundRect(barX, y, barMaxWidth, 16, 5, 5);
                 g.setColor(Ui.PRIMARY);
-                g.fillRoundRect(barX, y, barWidth, 20, 6, 6);
+                g.fillRoundRect(barX, y, barWidth, 16, 5, 5);
+                g.setFont(Ui.font(14, Font.BOLD));
                 g.setColor(Ui.TEXT);
-                g.drawString(valueText(row.value()) + valueSuffix, barX + barMaxWidth + 14, y + 16);
-                y += 48;
+                g.drawString(valueText(row.value()) + valueSuffix, barX + barMaxWidth + 16, y + 14);
+                y += 42;
             }
             g.dispose();
         }

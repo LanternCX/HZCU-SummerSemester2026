@@ -166,6 +166,20 @@ final class Ui {
         button.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
     }
 
+    static void toolbarButton(JButton button, int width, boolean primary) {
+        button.setFont(font(14, Font.BOLD));
+        button.setForeground(primary ? Color.WHITE : PRIMARY);
+        button.setBackground(primary ? PRIMARY : PANEL);
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
+        button.setFocusPainted(false);
+        button.setPreferredSize(new Dimension(width, 38));
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(primary ? PRIMARY : BORDER),
+            BorderFactory.createEmptyBorder(9, 18, 9, 18)
+        ));
+    }
+
     static void textButton(JButton button) {
         button.setForeground(PRIMARY);
         button.setBackground(PAGE);
