@@ -512,6 +512,19 @@ class BusinessServiceTest {
     }
 
     @Test
+    void monthlyReportCallsOrderProcedureByYearAndMonth() {
+        FakeOrderDAO orders = new FakeOrderDAO();
+        orders.monthlyReport = List.of(Map.of("category_name", "A型", "used_amount", new BigDecimal("6.00")));
+
+        List<Map<String, Object>> result = new BusinessService(new FakeItemDAO(), new FakeDetailDAO(), orders)
+            .monthlyReport(2026, 7);
+
+        assertEquals("A型", result.get(0).get("category_name"));
+        assertEquals(2026, orders.reportYear);
+        assertEquals(7, orders.reportMonth);
+    }
+
+    @Test
     void itemInsightsJoinMysqlRowsWithMongoStats() {
         FakeItemDAO items = new FakeItemDAO();
         items.rows = List.of(Map.of(
@@ -846,6 +859,9 @@ class BusinessServiceTest {
         private long deletedOrderId;
         private boolean deleteSucceeds;
         private List<Map<String, Object>> itemOrderCounts = List.of();
+        private List<Map<String, Object>> monthlyReport = List.of();
+        private int reportYear;
+        private int reportMonth;
 
         @Override
         public long createOrder(long userId, long itemId, BigDecimal amount) {
@@ -868,6 +884,13 @@ class BusinessServiceTest {
         @Override
         public List<Map<String, Object>> countByItem() {
             return itemOrderCounts;
+        }
+
+        @Override
+        public List<Map<String, Object>> monthlyReport(int year, int month) {
+            reportYear = year;
+            reportMonth = month;
+            return monthlyReport;
         }
 
         @Override

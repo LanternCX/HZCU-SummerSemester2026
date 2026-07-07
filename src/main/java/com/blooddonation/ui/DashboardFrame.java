@@ -19,6 +19,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -649,7 +650,7 @@ public class DashboardFrame extends JFrame {
     }
 
     private void showStatisticsPanel() {
-        resetMain("统计报表", "查看批次操作热度和评论评分。");
+        resetMain("统计报表", "查看批次操作热度、评论评分和月度用血报表。");
 
         JTabbedPane tabs = innerTabs();
 
@@ -659,7 +660,45 @@ public class DashboardFrame extends JFrame {
         BarChartPanel ratings = new BarChartPanel(5, " / 5");
         tabs.addTab("评论评分", section("评论评分", chartScroll(ratings)));
 
+        YearMonth[] selectedMonth = {YearMonth.now()};
+        BarChartPanel monthly = new BarChartPanel(0, " 单位");
+        JLabel period = new JLabel(monthLabel(selectedMonth[0]), SwingConstants.CENTER);
+        period.setFont(Ui.font(14, Font.BOLD));
+        period.setForeground(Ui.TEXT);
+        period.setPreferredSize(new Dimension(136, 38));
+        period.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        JButton previous = new JButton("<");
+        Ui.toolbarButton(previous, 42, false);
+        previous.setFont(Ui.font(16, Font.BOLD));
+        previous.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        JButton next = new JButton(">");
+        Ui.toolbarButton(next, 42, false);
+        next.setFont(Ui.font(16, Font.BOLD));
+        next.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
+        JButton refresh = new JButton("刷新");
+        Ui.toolbarButton(refresh, 88, true);
+        previous.addActionListener(event -> {
+            selectedMonth[0] = selectedMonth[0].minusMonths(1);
+            period.setText(monthLabel(selectedMonth[0]));
+            loadMonthlyReport(monthly, selectedMonth[0]);
+        });
+        next.addActionListener(event -> {
+            selectedMonth[0] = selectedMonth[0].plusMonths(1);
+            period.setText(monthLabel(selectedMonth[0]));
+            loadMonthlyReport(monthly, selectedMonth[0]);
+        });
+        refresh.addActionListener(event -> loadMonthlyReport(monthly, selectedMonth[0]));
+
+        JPanel monthlyActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        monthlyActions.setBackground(Ui.PANEL);
+        monthlyActions.add(previous);
+        monthlyActions.add(period);
+        monthlyActions.add(next);
+        monthlyActions.add(refresh);
+        tabs.addTab("月度报表", section("月度报表", chartScroll(monthly), monthlyActions));
+
         loadStatistics(topItems, ratings);
+        loadMonthlyReport(monthly, selectedMonth[0]);
         mainPanel.add(tabs, BorderLayout.CENTER);
         refreshMain();
     }
@@ -2440,6 +2479,22 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    private void loadMonthlyReport(BarChartPanel monthly, int year, int month) {
+        try {
+            monthly.setRows(monthlyChartRows(businessService.monthlyReport(year, month)));
+        } catch (RuntimeException ex) {
+            warn("月度报表加载失败，请检查数据库连接。");
+        }
+    }
+
+    private void loadMonthlyReport(BarChartPanel monthly, YearMonth month) {
+        loadMonthlyReport(monthly, month.getYear(), month.getMonthValue());
+    }
+
+    private static String monthLabel(YearMonth month) {
+        return month.getYear() + " 年 " + month.getMonthValue() + " 月";
+    }
+
     private static List<ChartRow> actionChartRows(Map<Long, String> items, List<Document> rows) {
         List<ChartRow> chartRows = new ArrayList<>();
         for (Document row : rows) {
@@ -2466,6 +2521,25 @@ public class DashboardFrame extends JFrame {
             chartRows.add(new ChartRow(label, averageRating == null ? 0 : averageRating.doubleValue()));
         }
         return chartRows;
+    }
+
+    private static List<ChartRow> monthlyChartRows(List<Map<String, Object>> rows) {
+        List<ChartRow> chartRows = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            String label = row.get("category_name")
+                + "（" + intValue(row.get("order_count")) + "单：待" + intValue(row.get("pending_count"))
+                + " / 完" + intValue(row.get("completed_count")) + " / 取消" + intValue(row.get("cancelled_count")) + "）";
+            chartRows.add(new ChartRow(label, doubleValue(row.get("used_amount"))));
+        }
+        return chartRows;
+    }
+
+    private static int intValue(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private static double doubleValue(Object value) {
+        return value instanceof Number number ? number.doubleValue() : 0D;
     }
 
     private static Long itemId(Object value) {

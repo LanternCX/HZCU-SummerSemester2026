@@ -3,11 +3,15 @@ package com.blooddonation.dao.mysql;
 import com.blooddonation.dao.BaseDAO;
 import com.blooddonation.exception.DBException;
 import java.math.BigDecimal;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +65,28 @@ public class OrderDAO extends BaseDAO {
             """;
         return queryList(sql, statement -> {
         });
+    }
+
+    public List<Map<String, Object>> monthlyReport(int year, int month) {
+        try (Connection connection = getConnection();
+             CallableStatement statement = connection.prepareCall("{CALL sp_monthly_report(?, ?)}")) {
+            statement.setInt(1, year);
+            statement.setInt(2, month);
+            try (ResultSet rows = statement.executeQuery()) {
+                ResultSetMetaData metaData = rows.getMetaData();
+                List<Map<String, Object>> result = new ArrayList<>();
+                while (rows.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                        row.put(metaData.getColumnLabel(i), rows.getObject(i));
+                    }
+                    result.add(row);
+                }
+                return result;
+            }
+        } catch (SQLException e) {
+            throw new DBException("Failed to load monthly report", e);
+        }
     }
 
     public boolean updateStatus(long orderId, int status) {

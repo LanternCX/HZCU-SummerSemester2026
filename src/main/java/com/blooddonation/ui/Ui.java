@@ -105,30 +105,34 @@ final class Ui {
     }
 
     static void spinner(JSpinner spinner, int width) {
-        spinner.setFont(font(16, Font.PLAIN));
-        spinner.setPreferredSize(new Dimension(width, 44));
-        spinner.setMinimumSize(new Dimension(width, 44));
+        styleSpinner(spinner, width, 44, 16, 10, 36);
+    }
+
+    private static void styleSpinner(JSpinner spinner, int width, int height, int fontSize, int paddingX, int buttonWidth) {
+        spinner.setFont(font(fontSize, Font.PLAIN));
+        spinner.setPreferredSize(new Dimension(width, height));
+        spinner.setMinimumSize(new Dimension(width, height));
         spinner.setBackground(PANEL);
         spinner.setBorder(BorderFactory.createLineBorder(BORDER));
         if (spinner.getEditor() instanceof JSpinner.DefaultEditor editor) {
             JFormattedTextField field = editor.getTextField();
-            field.setFont(font(16, Font.PLAIN));
+            field.setFont(font(fontSize, Font.PLAIN));
             field.setForeground(TEXT);
             field.setBackground(PANEL);
             field.setCaretColor(TEXT);
-            field.setBorder(BorderFactory.createEmptyBorder(9, 10, 9, 10));
+            field.setBorder(BorderFactory.createEmptyBorder(7, paddingX, 7, paddingX));
         }
         spinner.setUI(new BasicSpinnerUI() {
             @Override
             protected java.awt.Component createNextButton() {
-                JButton button = spinnerButton("+");
+                JButton button = spinnerButton("+", buttonWidth, height / 2);
                 installNextButtonListeners(button);
                 return button;
             }
 
             @Override
             protected java.awt.Component createPreviousButton() {
-                JButton button = spinnerButton("-");
+                JButton button = spinnerButton("-", buttonWidth, height / 2);
                 installPreviousButtonListeners(button);
                 return button;
             }
@@ -143,7 +147,7 @@ final class Ui {
         area.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
     }
 
-    private static JButton spinnerButton(String text) {
+    private static JButton spinnerButton(String text, int width, int height) {
         JButton button = new JButton(text);
         button.setFont(font(13, Font.BOLD));
         button.setForeground(TEXT);
@@ -152,7 +156,7 @@ final class Ui {
         button.setContentAreaFilled(true);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, BORDER));
-        button.setPreferredSize(new Dimension(36, 22));
+        button.setPreferredSize(new Dimension(width, height));
         return button;
     }
 
