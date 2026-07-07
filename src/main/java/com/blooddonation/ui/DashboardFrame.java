@@ -456,7 +456,7 @@ public class DashboardFrame extends JFrame {
     }
 
     private void showStatisticsPanel() {
-        resetMain("统计报表", "查看库存热度、评论评分和操作审计汇总。");
+        resetMain("统计报表", "查看库存热度和评论评分。");
 
         JTabbedPane tabs = innerTabs();
 
@@ -466,11 +466,7 @@ public class DashboardFrame extends JFrame {
         BarChartPanel ratings = new BarChartPanel(5, " / 5");
         tabs.addTab("评论评分", section("评论评分", new JScrollPane(ratings)));
 
-        DefaultTableModel audit = tableModel("日志类型", "级别", "数量", "最近时间");
-        JTable auditTable = table(audit);
-        tabs.addTab("操作审计", section("操作审计", new JScrollPane(auditTable)));
-
-        loadStatistics(topItems, ratings, audit);
+        loadStatistics(topItems, ratings);
         mainPanel.add(tabs, BorderLayout.CENTER);
         refreshMain();
     }
@@ -488,9 +484,15 @@ public class DashboardFrame extends JFrame {
         JTable loginTable = table(logins);
         if (isAdmin(session)) {
             tabs.addTab("登录日志", section("登录日志", new JScrollPane(loginTable)));
+
+            DefaultTableModel audit = tableModel("日志类型", "级别", "数量", "最近时间");
+            JTable auditTable = table(audit);
+            tabs.addTab("操作审计", section("操作审计", new JScrollPane(auditTable)));
+            loadLogs(actions, logins, audit, session);
+        } else {
+            loadLogs(actions, logins, null, session);
         }
 
-        loadLogs(actions, logins, session);
         mainPanel.add(tabs, BorderLayout.CENTER);
         refreshMain();
     }
@@ -1951,7 +1953,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
-    private void loadStatistics(BarChartPanel topItems, BarChartPanel ratings, DefaultTableModel audit) {
+    private void loadStatistics(BarChartPanel topItems, BarChartPanel ratings) {
         try {
             Map<Long, String> items = itemNames();
             List<ChartRow> topRows = new ArrayList<>();
@@ -1970,21 +1972,12 @@ public class DashboardFrame extends JFrame {
             }
             ratings.setRows(ratingRows);
 
-            audit.setRowCount(0);
-            for (Document row : businessService.auditSummary()) {
-                audit.addRow(new Object[] {
-                    row.get("log_type"),
-                    row.get("log_level"),
-                    row.get("log_count"),
-                    dateText(row.getDate("last_log_at"))
-                });
-            }
         } catch (RuntimeException ex) {
             warn("统计数据加载失败，请检查数据库连接。");
         }
     }
 
-    private void loadLogs(DefaultTableModel actions, DefaultTableModel logins, UserSession session) {
+    private void loadLogs(DefaultTableModel actions, DefaultTableModel logins, DefaultTableModel audit, UserSession session) {
         try {
             Map<Long, String> items = itemNames();
             actions.setRowCount(0);
@@ -2005,6 +1998,18 @@ public class DashboardFrame extends JFrame {
                         row.get("log_level"),
                         row.get("message"),
                         dateText(row.getDate("timestamp"))
+                    });
+                }
+            }
+
+            if (audit != null) {
+                audit.setRowCount(0);
+                for (Document row : businessService.auditSummary()) {
+                    audit.addRow(new Object[] {
+                        row.get("log_type"),
+                        row.get("log_level"),
+                        row.get("log_count"),
+                        dateText(row.getDate("last_log_at"))
                     });
                 }
             }
