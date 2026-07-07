@@ -39,6 +39,20 @@ for (let i = 1; i <= 20; i += 1) {
     created_at: new Date(Date.UTC(2026, 6, 3, 9, i, 0))
   });
 }
+[
+  [1, 2, 5, "管理员关注的 B 型全血批次"],
+  [1, 4, 4, "管理员确认的 O 型红细胞批次"],
+  [1, 15, 5, "管理员标记的 AB 型血浆批次"]
+].forEach(([userId, itemId, rating, content], index) => {
+  comments.push({
+    user_id: String(userId),
+    item_id: String(itemId),
+    content,
+    rating,
+    tags: tags[index % tags.length],
+    created_at: new Date(Date.UTC(2026, 6, 6, 10, index, 0))
+  });
+});
 hzcuDb.comments.insertMany(comments);
 
 const actionLogs = [];
