@@ -57,15 +57,24 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import org.bson.Document;
 
+/**
+ * 根据当前用户角色展示库存、申请、报表和管理功能。
+ */
 public class DashboardFrame extends JFrame {
     private final BusinessService businessService;
     private final List<JButton> navButtons = new ArrayList<>();
     private final JPanel mainPanel = new JPanel(new BorderLayout(0, 18));
 
+    /**
+     * 使用默认业务服务创建主界面。
+     *
+     * @param session 当前登录会话
+     */
     public DashboardFrame(UserSession session) {
         this(session, new BusinessService());
     }
 
+    /** 使用指定业务服务创建可测试的主界面。 */
     DashboardFrame(UserSession session, BusinessService businessService) {
         this.businessService = businessService;
         setTitle("献血管理系统");
@@ -75,6 +84,7 @@ public class DashboardFrame extends JFrame {
         setContentPane(content(session));
     }
 
+    /** @return 当前会话对应的主界面内容 */
     private JPanel content(UserSession session) {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Ui.PAGE);
@@ -86,6 +96,7 @@ public class DashboardFrame extends JFrame {
         return root;
     }
 
+    /** @return 按角色生成的侧边导航栏 */
     private JPanel sidebar(UserSession session) {
         JPanel panel = new JPanel(new BorderLayout(0, 22));
         panel.setPreferredSize(new Dimension(220, 0));
@@ -141,6 +152,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** 切换到指定业务模块。 */
     private void showModule(String module, UserSession session) {
         if ("业务数据".equals(module)) {
             showBusinessPanel(session);
@@ -179,6 +191,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 显示库存批次管理页面。 */
     private void showBusinessPanel(UserSession session) {
         resetMain("业务数据", "维护血液库存批次，双击表格行打开详情。");
 
@@ -235,6 +248,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示库存推荐页面。 */
     private void showRecommendPanel(UserSession session) {
         resetMain("推荐批次", "根据你的记录和热门数据推荐可用库存批次。");
 
@@ -276,6 +290,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 打开新增库存批次对话框。 */
     private void showCreateItemDialog(DefaultTableModel model) {
         JDialog dialog = new JDialog(this, "新增库存", true);
         JTextField titleField = field();
@@ -326,6 +341,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开库存批次编辑对话框。 */
     private void showEditItemDialog(long itemId, DefaultTableModel model, Runnable onSaved) {
         Map<String, Object> item = findItemRow(itemId);
         if (item == null) {
@@ -398,6 +414,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开用户档案编辑对话框。 */
     private void showEditUserProfileDialog(long userId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         Map<String, Object> row = findUserProfileRow(userId, session);
         if (row == null) {
@@ -471,6 +488,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 显示用血申请页面。 */
     private void showOrderPanel(UserSession session) {
         resetMain("订单记录", "查看用血记录，双击表格行打开详情。");
 
@@ -528,6 +546,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示分类管理页面。 */
     private void showCategoryPanel(UserSession session) {
         if (!isAdmin(session)) {
             showBusinessPanel(session);
@@ -587,6 +606,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示管理员用户档案页面。 */
     private void showUserProfilePanel(UserSession session) {
         if (!isAdmin(session)) {
             showOwnProfilePanel(session);
@@ -646,6 +666,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示当前用户档案页面。 */
     private void showOwnProfilePanel(UserSession session) {
         resetMain("我的档案", "查看和维护自己的联系方式与档案。");
 
@@ -666,6 +687,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示当前角色可查看的统计页面。 */
     private void showStatisticsPanel(UserSession session) {
         if (!isAdmin(session)) {
             showUserStatisticsPanel(session);
@@ -722,6 +744,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 显示普通用户个人统计页面。 */
     private void showUserStatisticsPanel(UserSession session) {
         resetMain("统计报表", "查看你的订单、评论和月度申请统计。");
 
@@ -732,6 +755,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 向标签页添加个人申请和评论统计。 */
     private void addUserStatisticsTabs(JTabbedPane tabs, UserSession session) {
         BarChartPanel statuses = new BarChartPanel(0, " 单");
         tabs.addTab("订单状态", section("订单状态", chartScroll(statuses)));
@@ -751,6 +775,7 @@ public class DashboardFrame extends JFrame {
         loadUserStatistics(statuses, categories, bloodTypes, months, ratings, session);
     }
 
+    /** 显示行为日志、登录日志和审计统计。 */
     private void showLogPanel(UserSession session) {
         if (!isAdmin(session)) {
             showBusinessPanel(session);
@@ -790,6 +815,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 打开新增顶级分类对话框。 */
     private void showCreateCategoryDialog(DefaultTableModel model) {
         JDialog dialog = new JDialog(this, "新增分类", true);
         JTextField nameField = field();
@@ -825,6 +851,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开新增子分类对话框。 */
     private void showCreateChildCategoryDialog(long parentId, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "新增子分类", true);
         JTextField nameField = field();
@@ -860,6 +887,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开分类编辑对话框。 */
     private void showEditCategoryDialog(long categoryId, DefaultTableModel model, Runnable onSaved) {
         Map<String, Object> category = findCategoryRow(categoryId);
         if (category == null) {
@@ -907,6 +935,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** @return 分类名称和父分类表单 */
     private JPanel categoryForm(JTextField nameField, JComboBox<Option> parentBox) {
         JPanel form = formPanel();
         form.setBorder(BorderFactory.createEmptyBorder(22, 24, 12, 24));
@@ -915,6 +944,7 @@ public class DashboardFrame extends JFrame {
         return form;
     }
 
+    /** 打开新增用血申请对话框。 */
     private void showCreateOrderDialog(UserSession session, DefaultTableModel model) {
         JDialog dialog = new JDialog(this, "创建用血记录", true);
         JComboBox<Option> itemBox = new JComboBox<>();
@@ -958,6 +988,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开指定库存的快速申请对话框。 */
     private void showApplyOrderDialog(UserSession session, long itemId, String itemTitle) {
         JDialog dialog = new JDialog(this, "申请用血", true);
         JSpinner amountSpinner = amountSpinner();
@@ -992,6 +1023,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开用户自己的待审批申请编辑对话框。 */
     private void showEditOwnOrderDialog(long orderId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "编辑用血申请", true);
         JComboBox<Option> itemBox = new JComboBox<>();
@@ -1036,6 +1068,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 打开管理员申请状态更新对话框。 */
     private void showUpdateOrderDialog(long orderId, UserSession session, DefaultTableModel model, Runnable onSaved) {
         JDialog dialog = new JDialog(this, "更新处理状态", true);
         JComboBox<String> statusBox = new JComboBox<>(new String[] {"待处理", "已完成", "已取消"});
@@ -1068,6 +1101,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** 显示尚未提供实际内容的占位页面。 */
     private void showPlaceholder(String titleText, String message, UserSession session) {
         resetMain(titleText, session.username() + " · " + session.role());
         JLabel label = new JLabel(message, SwingConstants.CENTER);
@@ -1080,6 +1114,7 @@ public class DashboardFrame extends JFrame {
         refreshMain();
     }
 
+    /** 重置主内容区域并显示页面标题。 */
     private void resetMain(String titleText, String subtitleText) {
         mainPanel.removeAll();
         JPanel header = new JPanel(new BorderLayout(0, 6));
@@ -1095,10 +1130,12 @@ public class DashboardFrame extends JFrame {
         mainPanel.add(header, BorderLayout.NORTH);
     }
 
+    /** @return 带标题的内容分区 */
     private JPanel section(String title, java.awt.Component body) {
         return section(title, body, null);
     }
 
+    /** @return 带标题和操作区的内容分区 */
     private JPanel section(String title, java.awt.Component body, java.awt.Component actions) {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setPreferredSize(new Dimension(380, 0));
@@ -1121,6 +1158,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 组合筛选栏与表格的面板 */
     private JPanel filteredTablePanel(JTable table, JPanel filters) {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setBackground(Ui.PANEL);
@@ -1129,6 +1167,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 使用统一样式包装表格的滚动面板 */
     private JScrollPane tableScroll(JTable table) {
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
@@ -1137,6 +1176,7 @@ public class DashboardFrame extends JFrame {
         return scroll;
     }
 
+    /** @return 支持关键词和列值过滤的筛选栏 */
     private JPanel filterBar(JTable table, FilterChoice... choices) {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>((DefaultTableModel) table.getModel());
         table.setRowSorter(sorter);
@@ -1200,6 +1240,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 带标签的筛选控件块 */
     private JPanel filterBlock(String labelText, java.awt.Component field) {
         JPanel block = new JPanel(new BorderLayout(0, 4));
         block.setBackground(Ui.PANEL);
@@ -1211,6 +1252,7 @@ public class DashboardFrame extends JFrame {
         return block;
     }
 
+    /** @return 表格指定列中的去重文本值 */
     private Set<String> columnValues(JTable table, int column) {
         Set<String> values = new LinkedHashSet<>();
         DefaultTableModel model = (DefaultTableModel) table.getModel();
@@ -1223,6 +1265,7 @@ public class DashboardFrame extends JFrame {
         return values;
     }
 
+    /** @return 当前表格行是否包含查询文本 */
     private boolean rowContains(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry, String query) {
         for (int column = 0; column < entry.getValueCount(); column++) {
             if (cellText(entry, column).toLowerCase().contains(query)) {
@@ -1232,17 +1275,20 @@ public class DashboardFrame extends JFrame {
         return false;
     }
 
+    /** @return 当前表格行指定列的文本 */
     private String cellText(RowFilter.Entry<? extends DefaultTableModel, ? extends Integer> entry, int column) {
         Object value = entry.getValue(column);
         return value == null ? "" : String.valueOf(value);
     }
 
+    /** @return 主界面使用的标签页容器 */
     private JPanel tabs() {
         JPanel tabs = new JPanel(new CardLayout());
         tabs.setBackground(Ui.PAGE);
         return tabs;
     }
 
+    /** @return 使用统一样式的内层标签页 */
     private JTabbedPane innerTabs() {
         JTabbedPane tabs = new JTabbedPane();
         tabs.setUI(new BasicTabbedPaneUI() {
@@ -1310,6 +1356,7 @@ public class DashboardFrame extends JFrame {
         return tabs;
     }
 
+    /** @return 包装柱状图的滚动面板 */
     private JScrollPane chartScroll(BarChartPanel chart) {
         JScrollPane scroll = new JScrollPane(chart);
         scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
@@ -1318,6 +1365,7 @@ public class DashboardFrame extends JFrame {
         return scroll;
     }
 
+    /** 打开库存详情标签页。 */
     private void openItemDetailTab(
         JPanel tabs,
         JTable table,
@@ -1365,6 +1413,7 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("批次", table, itemId, 1), detail, key);
     }
 
+    /** 打开申请详情标签页。 */
     private void openOrderDetailTab(
         JPanel tabs,
         JTable table,
@@ -1419,6 +1468,7 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("记录", table, orderId, 1), detail, key);
     }
 
+    /** 打开分类详情标签页。 */
     private void openCategoryDetailTab(
         JPanel tabs,
         JTable table,
@@ -1469,6 +1519,7 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("分类", table, categoryId, 1), detail, key);
     }
 
+    /** 打开用户档案详情标签页。 */
     private void openUserProfileDetailTab(
         JPanel tabs,
         JTable table,
@@ -1516,6 +1567,7 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, detailTabTitle("用户", table, userId, 1), detail, key);
     }
 
+    /** 打开库存洞察详情标签页。 */
     private void openInsightDetailTab(JPanel tabs, long itemId, UserSession session) {
         String key = "insight:" + itemId;
         if (selectDetailTab(tabs, key)) {
@@ -1537,6 +1589,7 @@ public class DashboardFrame extends JFrame {
         addDetailTab(tabs, "综合信息", detail, key);
     }
 
+    /** 根据权限向申请详情添加删除按钮。 */
     private void addOrderDeleteButton(
         JPanel actions,
         JPanel tabs,
@@ -1557,12 +1610,14 @@ public class DashboardFrame extends JFrame {
         actions.add(deleteButton);
     }
 
+    /** @return 按当前角色规则删除申请的结果 */
     private BusinessResult deleteOrder(UserSession session, long orderId) {
         return isAdmin(session)
             ? businessService.deleteOrder(orderId)
             : businessService.deleteOwnOrder(session.userId(), orderId);
     }
 
+    /** @return 带操作区的详情页面 */
     private JPanel detailPage(String title, JPanel body, JPanel actions) {
         JScrollPane scroll = new JScrollPane(body);
         scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -1572,6 +1627,7 @@ public class DashboardFrame extends JFrame {
         return section(title, scroll, actions);
     }
 
+    /** @return 是否已选中指定详情标签页 */
     private boolean selectDetailTab(JPanel tabs, String key) {
         for (java.awt.Component component : tabs.getComponents()) {
             if (component instanceof JPanel panel && key.equals(panel.getClientProperty("detailKey"))) {
@@ -1582,6 +1638,7 @@ public class DashboardFrame extends JFrame {
         return false;
     }
 
+    /** 关闭指定详情标签页。 */
     private void closeDetailTab(JPanel tabs, String key) {
         for (java.awt.Component component : tabs.getComponents()) {
             if (component instanceof JPanel panel && key.equals(panel.getClientProperty("detailKey"))) {
@@ -1594,12 +1651,14 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 添加并选中详情标签页。 */
     private void addDetailTab(JPanel tabs, String title, JPanel detail, String key) {
         detail.putClientProperty("detailKey", key);
         tabs.add(detail, key);
         ((CardLayout) tabs.getLayout()).show(tabs, key);
     }
 
+    /** @return 根据表格内容生成的详情标签标题 */
     private String detailTabTitle(String prefix, JTable table, long id, int nameColumn) {
         for (int i = 0; i < table.getModel().getRowCount(); i++) {
             Object rowId = table.getModel().getValueAt(i, 0);
@@ -1611,6 +1670,7 @@ public class DashboardFrame extends JFrame {
         return prefix + "详情";
     }
 
+    /** @return 库存批次详情内容 */
     private JPanel itemDetailBody(JTable table, long itemId, UserSession session, Runnable onChanged) {
         JPanel body = detailBody();
         for (int i = 0; i < table.getModel().getRowCount(); i++) {
@@ -1634,6 +1694,7 @@ public class DashboardFrame extends JFrame {
         return body;
     }
 
+    /** @return 用血申请详情内容 */
     private JPanel orderDetailBody(DefaultTableModel model, long orderId) {
         JPanel body = detailBody();
         for (int i = 0; i < model.getRowCount(); i++) {
@@ -1650,6 +1711,7 @@ public class DashboardFrame extends JFrame {
         return body;
     }
 
+    /** @return 分类详情及其子分类内容 */
     private JPanel categoryDetailBody(DefaultTableModel model, long categoryId, UserSession session, Runnable onChanged) {
         JPanel body = detailBody();
         for (int i = 0; i < model.getRowCount(); i++) {
@@ -1667,6 +1729,7 @@ public class DashboardFrame extends JFrame {
         return body;
     }
 
+    /** @return 用户档案详情内容 */
     private JPanel userProfileDetailBody(DefaultTableModel model, long userId) {
         JPanel body = detailBody();
         for (int i = 0; i < model.getRowCount(); i++) {
@@ -1687,6 +1750,7 @@ public class DashboardFrame extends JFrame {
         return body;
     }
 
+    /** @return 库存评分、热度和申请统计详情 */
     private JPanel insightDetailBody(long itemId) {
         JPanel body = detailBody();
         ItemInsightDTO insight = findInsight(itemId);
@@ -1712,6 +1776,7 @@ public class DashboardFrame extends JFrame {
         return body;
     }
 
+    /** @return 指定父分类的子分类管理面板 */
     private JPanel childCategoriesPanel(long parentId, UserSession session, DefaultTableModel mainModel, Runnable onChanged) {
         DefaultTableModel childModel = tableModel("category_id", "子分类名称");
         JTable childTable = table(childModel);
@@ -1775,18 +1840,21 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 统一详情内容容器 */
     private JPanel detailBody() {
         JPanel body = new JPanel(new BorderLayout(0, 16));
         body.setBackground(Ui.PANEL);
         return body;
     }
 
+    /** @return 详情信息网格 */
     private JPanel detailGrid() {
         JPanel grid = new JPanel(new GridBagLayout());
         grid.setBackground(Ui.PANEL);
         return grid;
     }
 
+    /** 向详情网格添加信息块。 */
     private void addInfo(JPanel grid, int row, int column, int width, String label, Object value) {
         GridBagConstraints c = new GridBagConstraints();
         c.gridy = row;
@@ -1798,6 +1866,7 @@ public class DashboardFrame extends JFrame {
         grid.add(infoBlock(label, value), c);
     }
 
+    /** @return 单个标签和值组成的信息块 */
     private JPanel infoBlock(String label, Object value) {
         JPanel block = new JPanel(new BorderLayout(0, 4));
         block.setBackground(new Color(250, 249, 246));
@@ -1816,6 +1885,7 @@ public class DashboardFrame extends JFrame {
         return block;
     }
 
+    /** @return 库存扩展详情和评论区域 */
     private JPanel itemExtraPanel(long itemId, UserSession session, Runnable onChanged) {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setBackground(Ui.PANEL);
@@ -1830,6 +1900,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 评论列表及新增入口 */
     private JPanel commentPanel(long itemId, UserSession session, Runnable onChanged) {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setBackground(new Color(250, 249, 246));
@@ -1859,6 +1930,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** @return 支持前后翻页的评论查看器 */
     private JPanel commentPager(List<Document> comments, UserSession session, Runnable onChanged) {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -1922,6 +1994,7 @@ public class DashboardFrame extends JFrame {
         return panel;
     }
 
+    /** 渲染指定下标的评论。 */
     private void renderComment(
         List<Document> comments,
         int index,
@@ -1961,6 +2034,7 @@ public class DashboardFrame extends JFrame {
         delete.setVisible(canDeleteComment(session, comment));
     }
 
+    /** @return 评论作者的显示名称 */
     private String commentUsername(Document comment, UserSession session) {
         String userId = comment.getString("user_id");
         if (String.valueOf(session.userId()).equals(userId)) {
@@ -1973,10 +2047,12 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 当前用户是否可以删除指定评论 */
     private boolean canDeleteComment(UserSession session, Document comment) {
         return comment.get("_id") != null && (isAdmin(session) || String.valueOf(session.userId()).equals(comment.getString("user_id")));
     }
 
+    /** @return 评论标签的显示文本 */
     private String commentTags(Document comment) {
         List<?> tags = comment.getList("tags", Object.class, List.of());
         return tags.stream()
@@ -1986,6 +2062,7 @@ public class DashboardFrame extends JFrame {
             .orElse("");
     }
 
+    /** 打开新增评论对话框。 */
     private void showCreateCommentDialog(long itemId, UserSession session, Runnable onChanged) {
         JDialog dialog = new JDialog(this, "发表评论", true);
         JTextArea content = area(3);
@@ -2023,6 +2100,7 @@ public class DashboardFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    /** @return 清理并去重后的标签列表 */
     private List<String> tags(String value) {
         if (value == null || value.trim().isEmpty()) {
             return List.of();
@@ -2033,10 +2111,12 @@ public class DashboardFrame extends JFrame {
             .toList();
     }
 
+    /** @return 日期的界面显示文本 */
     private String dateText(Date date) {
         return date == null ? "" : new SimpleDateFormat("yyyy-MM-dd HH:mm").format(date);
     }
 
+    /** @return 带标签的多行文本块 */
     private JPanel textBlock(String label, String text) {
         JPanel block = new JPanel(new BorderLayout(0, 8));
         block.setBackground(new Color(250, 249, 246));
@@ -2057,6 +2137,7 @@ public class DashboardFrame extends JFrame {
         return block;
     }
 
+    /** @return 详情为空时的提示标签 */
     private JLabel emptyDetail(String text) {
         JLabel label = new JLabel(text, SwingConstants.CENTER);
         label.setForeground(new Color(91, 94, 102));
@@ -2064,6 +2145,7 @@ public class DashboardFrame extends JFrame {
         return label;
     }
 
+    /** @return 限制长度并添加省略号的文本 */
     private String ellipsis(String text, int maxLength) {
         if (text.length() <= maxLength) {
             return text;
@@ -2071,6 +2153,7 @@ public class DashboardFrame extends JFrame {
         return text.substring(0, maxLength) + "...";
     }
 
+    /** @return 带标题、表单和操作按钮的对话框内容 */
     private JPanel dialogContent(String title, JPanel form, JButton cancelButton, JButton saveButton) {
         JPanel root = new JPanel(new BorderLayout(0, 18));
         root.setBackground(Ui.PAGE);
@@ -2090,12 +2173,14 @@ public class DashboardFrame extends JFrame {
         return root;
     }
 
+    /** @return 使用统一布局的表单面板 */
     private JPanel formPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Ui.PANEL);
         return panel;
     }
 
+    /** @return 库存批次编辑表单 */
     private JPanel itemForm(
         JTextField titleField,
         JComboBox<Option> categoryBox,
@@ -2119,6 +2204,7 @@ public class DashboardFrame extends JFrame {
         return form;
     }
 
+    /** @return 用户档案编辑表单 */
     private JPanel userProfileForm(
         JTextField usernameField,
         JComboBox<String> roleBox,
@@ -2144,6 +2230,7 @@ public class DashboardFrame extends JFrame {
         return form;
     }
 
+    /** 向网格表单添加带标签的字段。 */
     private void addFormField(JPanel form, int row, int column, int width, String labelText, java.awt.Component field) {
         JPanel block = new JPanel(new BorderLayout(0, 8));
         block.setBackground(Ui.PANEL);
@@ -2163,6 +2250,7 @@ public class DashboardFrame extends JFrame {
         form.add(block, c);
     }
 
+    /** @return 使用统一样式的文本输入框 */
     private JTextField field() {
         JTextField field = new JTextField(18);
         Ui.field(field);
@@ -2171,22 +2259,26 @@ public class DashboardFrame extends JFrame {
         return field;
     }
 
+    /** @return 库存或申请数量选择器 */
     private JSpinner amountSpinner() {
         JSpinner spinner = new JSpinner(new SpinnerNumberModel(1.0, 0.01, 99999.0, 1.0));
         Ui.spinner(spinner, 240);
         return spinner;
     }
 
+    /** @return 数量选择器中的精确十进制值 */
     private BigDecimal spinnerAmount(JSpinner spinner) {
         return BigDecimal.valueOf(((Number) spinner.getValue()).doubleValue());
     }
 
+    /** @return 血型选择框 */
     private JComboBox<String> bloodTypeBox() {
         JComboBox<String> box = new JComboBox<>(new String[] {"A型", "B型", "AB型", "O型"});
         Ui.comboBox(box, 240);
         return box;
     }
 
+    /** @return 使用统一样式的多行文本框 */
     private JTextArea area(int rows) {
         JTextArea area = new JTextArea(rows, 18);
         area.setLineWrap(true);
@@ -2195,6 +2287,7 @@ public class DashboardFrame extends JFrame {
         return area;
     }
 
+    /** @return 包装多行文本框的滚动面板 */
     private JScrollPane areaScroll(JTextArea area) {
         JScrollPane scroll = new JScrollPane(area);
         scroll.setBorder(BorderFactory.createLineBorder(Ui.BORDER));
@@ -2202,6 +2295,7 @@ public class DashboardFrame extends JFrame {
         return scroll;
     }
 
+    /** @return 只读表格模型 */
     private DefaultTableModel tableModel(String... columns) {
         return new DefaultTableModel(columns, 0) {
             @Override
@@ -2211,6 +2305,7 @@ public class DashboardFrame extends JFrame {
         };
     }
 
+    /** @return 使用统一样式和排序器的表格 */
     private JTable table(DefaultTableModel model) {
         JTable table = new JTable(model);
         table.setRowHeight(40);
@@ -2247,22 +2342,26 @@ public class DashboardFrame extends JFrame {
         return table;
     }
 
+    /** 设置表格各列的建议宽度。 */
     private void setColumnWidths(JTable table, int... widths) {
         for (int i = 0; i < widths.length && i < table.getColumnModel().getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
     }
 
+    /** 隐藏表格第一列的内部编号。 */
     private void hideFirstColumn(JTable table) {
         hideColumn(table, 0);
     }
 
+    /** 隐藏表格指定列。 */
     private void hideColumn(JTable table, int column) {
         table.getColumnModel().getColumn(column).setMinWidth(0);
         table.getColumnModel().getColumn(column).setMaxWidth(0);
         table.getColumnModel().getColumn(column).setPreferredWidth(0);
     }
 
+    /** 向简单表单添加一行字段。 */
     private void addRow(JPanel panel, int row, String labelText, java.awt.Component field) {
         GridBagConstraints c = new GridBagConstraints();
         c.gridy = row;
@@ -2280,6 +2379,7 @@ public class DashboardFrame extends JFrame {
         panel.add(field, c);
     }
 
+    /** 加载全部分类选项。 */
     private void loadCategories(JComboBox<Option> box) {
         DefaultComboBoxModel<Option> model = new DefaultComboBoxModel<>();
         for (Map<String, Object> row : businessService.findCategories()) {
@@ -2290,6 +2390,7 @@ public class DashboardFrame extends JFrame {
         box.setModel(model);
     }
 
+    /** 加载可选父分类并排除当前分类。 */
     private void loadParentCategories(JComboBox<Option> box, Long currentId) {
         DefaultComboBoxModel<Option> model = new DefaultComboBoxModel<>();
         model.addElement(new Option(0L, "无父分类"));
@@ -2303,6 +2404,7 @@ public class DashboardFrame extends JFrame {
         box.setModel(model);
     }
 
+    /** 加载可用库存选项。 */
     private void loadItemOptions(JComboBox<Option> box) {
         DefaultComboBoxModel<Option> model = new DefaultComboBoxModel<>();
         for (Map<String, Object> row : businessService.findItems()) {
@@ -2313,6 +2415,7 @@ public class DashboardFrame extends JFrame {
         box.setModel(model);
     }
 
+    /** 将全部分类加载到表格。 */
     private void loadCategories(DefaultTableModel model) {
         try {
             List<Map<String, Object>> rows = businessService.findCategories();
@@ -2332,6 +2435,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 将指定父分类的子分类加载到表格。 */
     private void loadChildCategories(DefaultTableModel model, long parentId) {
         try {
             model.setRowCount(0);
@@ -2349,6 +2453,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 指定库存行；不存在时返回空映射 */
     private Map<String, Object> findItemRow(long itemId) {
         for (Map<String, Object> row : businessService.findItems()) {
             if (((Number) row.get("item_id")).longValue() == itemId) {
@@ -2358,6 +2463,7 @@ public class DashboardFrame extends JFrame {
         return null;
     }
 
+    /** @return 指定分类行；不存在时返回空映射 */
     private Map<String, Object> findCategoryRow(long categoryId) {
         for (Map<String, Object> row : businessService.findCategories()) {
             if (((Number) row.get("category_id")).longValue() == categoryId) {
@@ -2367,6 +2473,7 @@ public class DashboardFrame extends JFrame {
         return null;
     }
 
+    /** @return 当前会话可查看的指定用户档案 */
     private Map<String, Object> findUserProfileRow(long userId, UserSession session) {
         for (Map<String, Object> row : businessService.findUserProfiles(session.userId(), isAdmin(session))) {
             if (((Number) row.get("user_id")).longValue() == userId) {
@@ -2376,6 +2483,7 @@ public class DashboardFrame extends JFrame {
         return null;
     }
 
+    /** 按编号选中下拉框选项。 */
     private void selectOption(JComboBox<Option> box, long id) {
         for (int i = 0; i < box.getItemCount(); i++) {
             if (box.getItemAt(i).id() == id) {
@@ -2385,6 +2493,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 按显示文本选中下拉框选项。 */
     private void selectOptionByLabel(JComboBox<Option> box, String label) {
         for (int i = 0; i < box.getItemCount(); i++) {
             if (box.getItemAt(i).label().equals(label)) {
@@ -2394,6 +2503,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 表格模型中的指定申请行 */
     private java.util.Optional<Map<String, Object>> findOrderRow(DefaultTableModel model, long orderId) {
         for (int row = 0; row < model.getRowCount(); row++) {
             if (((Number) model.getValueAt(row, 0)).longValue() == orderId) {
@@ -2407,12 +2517,14 @@ public class DashboardFrame extends JFrame {
         return java.util.Optional.empty();
     }
 
+    /** @return 指定申请是否处于待审批状态 */
     private boolean isPendingOrder(DefaultTableModel model, long orderId) {
         return findOrderRow(model, orderId)
             .map(row -> "待处理".equals(row.get("status")))
             .orElse(false);
     }
 
+    /** 将库存批次加载到表格。 */
     private void loadItems(DefaultTableModel model) {
         try {
             Map<Long, String> categories = categoryNames();
@@ -2431,6 +2543,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 将用户推荐加载到表格。 */
     private void loadRecommendations(DefaultTableModel model, UserSession session) {
         try {
             model.setRowCount(0);
@@ -2451,6 +2564,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 将库存综合统计加载到表格。 */
     private void loadInsights(DefaultTableModel model) {
         try {
             model.setRowCount(0);
@@ -2472,6 +2586,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 重新加载库存相关表格。 */
     private void reloadItemRows(DefaultTableModel model) {
         if (model.findColumn("评论") >= 0) {
             loadInsights(model);
@@ -2480,6 +2595,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 按当前角色加载申请记录。 */
     private void loadOrders(DefaultTableModel model, UserSession session) {
         try {
             Map<Long, ItemInsightDTO> items = itemInsightsById();
@@ -2500,6 +2616,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 按当前角色加载用户档案。 */
     private void loadUserProfiles(DefaultTableModel model, UserSession session) {
         try {
             model.setRowCount(0);
@@ -2520,6 +2637,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 加载管理员使用的热度和评分统计。 */
     private void loadStatistics(BarChartPanel topItems, BarChartPanel ratings) {
         try {
             Map<Long, String> items = itemNames();
@@ -2531,6 +2649,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 加载普通用户的个人统计图表。 */
     private void loadUserStatistics(
         BarChartPanel statuses,
         BarChartPanel categories,
@@ -2552,6 +2671,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 加载指定年月的月度报表。 */
     private void loadMonthlyReport(BarChartPanel monthly, int year, int month) {
         try {
             monthly.setRows(monthlyChartRows(businessService.monthlyReport(year, month)));
@@ -2560,14 +2680,17 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 加载指定月份的月度报表。 */
     private void loadMonthlyReport(BarChartPanel monthly, YearMonth month) {
         loadMonthlyReport(monthly, month.getYear(), month.getMonthValue());
     }
 
+    /** @return 年月的中文显示文本 */
     private static String monthLabel(YearMonth month) {
         return month.getYear() + " 年 " + month.getMonthValue() + " 月";
     }
 
+    /** @return 行为热度柱状图数据 */
     private static List<ChartRow> actionChartRows(Map<Long, String> items, List<Document> rows) {
         List<ChartRow> chartRows = new ArrayList<>();
         for (Document row : rows) {
@@ -2581,6 +2704,7 @@ public class DashboardFrame extends JFrame {
         return chartRows;
     }
 
+    /** @return 申请状态柱状图数据 */
     private List<ChartRow> orderStatusChartRows(List<Map<String, Object>> rows) {
         Map<String, Double> counts = new LinkedHashMap<>();
         counts.put("待处理", 0D);
@@ -2593,6 +2717,7 @@ public class DashboardFrame extends JFrame {
         return chartRows(counts);
     }
 
+    /** @return 按库存汇总的申请柱状图数据 */
     private List<ChartRow> orderItemChartRows(
         List<Map<String, Object>> rows,
         Map<Long, ItemInsightDTO> items,
@@ -2608,6 +2733,7 @@ public class DashboardFrame extends JFrame {
         return chartRows(counts);
     }
 
+    /** @return 按月份汇总的申请柱状图数据 */
     private static List<ChartRow> orderMonthChartRows(List<Map<String, Object>> rows) {
         Map<String, Double> amounts = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
@@ -2617,6 +2743,7 @@ public class DashboardFrame extends JFrame {
         return chartRows(amounts);
     }
 
+    /** @return 数据库月份值的标准文本 */
     static String monthText(Object value) {
         if (value instanceof Date date) {
             return new SimpleDateFormat("yyyy-MM").format(date);
@@ -2630,6 +2757,7 @@ public class DashboardFrame extends JFrame {
         return "未记录";
     }
 
+    /** @return 名称和值映射对应的柱状图数据 */
     private static List<ChartRow> chartRows(Map<String, Double> values) {
         return values.entrySet().stream()
             .filter(entry -> entry.getValue() > 0)
@@ -2637,6 +2765,7 @@ public class DashboardFrame extends JFrame {
             .toList();
     }
 
+    /** @return 评论评分柱状图数据 */
     private static List<ChartRow> ratingChartRows(Map<Long, String> items, List<Document> rows) {
         List<ChartRow> chartRows = new ArrayList<>();
         for (Document row : rows) {
@@ -2652,6 +2781,7 @@ public class DashboardFrame extends JFrame {
         return chartRows;
     }
 
+    /** @return 月度用血柱状图数据 */
     private static List<ChartRow> monthlyChartRows(List<Map<String, Object>> rows) {
         List<ChartRow> chartRows = new ArrayList<>();
         for (Map<String, Object> row : rows) {
@@ -2663,14 +2793,17 @@ public class DashboardFrame extends JFrame {
         return chartRows;
     }
 
+    /** @return 对象的整数值，无法转换时返回 0 */
     private static int intValue(Object value) {
         return value instanceof Number number ? number.intValue() : 0;
     }
 
+    /** @return 对象的双精度值，无法转换时返回 0 */
     private static double doubleValue(Object value) {
         return value instanceof Number number ? number.doubleValue() : 0D;
     }
 
+    /** @return 对象表示的库存编号，无法转换时为空 */
     private static Long itemId(Object value) {
         if (value == null || "NONE".equals(String.valueOf(value))) {
             return null;
@@ -2682,6 +2815,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 将行为、登录和审计日志加载到表格。 */
     private void loadLogs(DefaultTableModel actions, DefaultTableModel logins, DefaultTableModel audit, UserSession session) {
         try {
             Map<Long, String> items = itemNames();
@@ -2723,10 +2857,12 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 按分类编号索引的分类名称 */
     private Map<Long, String> categoryNames() {
         return categoryNames(businessService.findCategories());
     }
 
+    /** @return 指定分类行对应的名称索引 */
     private Map<Long, String> categoryNames(List<Map<String, Object>> rows) {
         java.util.HashMap<Long, String> names = new java.util.HashMap<>();
         for (Map<String, Object> row : rows) {
@@ -2735,6 +2871,7 @@ public class DashboardFrame extends JFrame {
         return names;
     }
 
+    /** @return 按库存编号索引的库存名称 */
     private Map<Long, String> itemNames() {
         java.util.HashMap<Long, String> names = new java.util.HashMap<>();
         for (Map<String, Object> row : businessService.findItems()) {
@@ -2743,6 +2880,7 @@ public class DashboardFrame extends JFrame {
         return names;
     }
 
+    /** @return 按库存编号索引的综合统计 */
     private Map<Long, ItemInsightDTO> itemInsightsById() {
         java.util.HashMap<Long, ItemInsightDTO> items = new java.util.HashMap<>();
         for (ItemInsightDTO row : businessService.findItemInsights()) {
@@ -2751,6 +2889,7 @@ public class DashboardFrame extends JFrame {
         return items;
     }
 
+    /** @return 指定库存的综合统计，不存在时为空 */
     private ItemInsightDTO findInsight(long itemId) {
         try {
             for (ItemInsightDTO row : businessService.findItemInsights()) {
@@ -2764,11 +2903,13 @@ public class DashboardFrame extends JFrame {
         return null;
     }
 
+    /** @return 指定库存洞察的标题 */
     private String insightTitle(long itemId) {
         ItemInsightDTO insight = findInsight(itemId);
         return insight == null ? "库存批次 " + itemId : insight.title();
     }
 
+    /** @return 库存编号对应的名称 */
     private String itemName(Map<Long, String> items, Object itemId) {
         if (itemId == null || "NONE".equals(String.valueOf(itemId))) {
             return "无关联批次";
@@ -2781,6 +2922,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 行为日志用户的显示名称 */
     private String actionUser(Document row, UserSession session) {
         String userId = row.getString("user_id");
         if (String.valueOf(session.userId()).equals(userId)) {
@@ -2789,6 +2931,7 @@ public class DashboardFrame extends JFrame {
         return logUser(userId);
     }
 
+    /** @return 系统日志用户的显示名称 */
     private String logUser(String userId) {
         try {
             return userId == null || "SYSTEM".equals(userId) ? "系统" : businessService.findUsername(Long.parseLong(userId));
@@ -2797,6 +2940,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** @return 行为类型的中文标签 */
     private String actionLabel(String actionType) {
         return switch (actionType == null ? "" : actionType) {
             case "CREATE_ORDER" -> "创建记录";
@@ -2809,20 +2953,24 @@ public class DashboardFrame extends JFrame {
         };
     }
 
+    /** @return 下拉框当前选项 */
     private Option selected(JComboBox<Option> box) {
         Object value = box.getSelectedItem();
         return value instanceof Option option ? option : null;
     }
 
+    /** @return 当前选择的父分类编号 */
     private Long selectedParentId(JComboBox<Option> box) {
         Option option = selected(box);
         return option == null || option.id() == 0L ? null : option.id();
     }
 
+    /** @return 当前选择的用户角色 */
     private String selectedRole(JComboBox<String> box) {
         return box.getSelectedIndex() == 1 ? "ADMIN" : "USER";
     }
 
+    /** @return 指定分类是否是目标父分类的后代 */
     private boolean isDescendant(List<Map<String, Object>> rows, long categoryId, long parentId) {
         for (Map<String, Object> row : rows) {
             Object rowParentId = row.get("parent_id");
@@ -2836,18 +2984,22 @@ public class DashboardFrame extends JFrame {
         return false;
     }
 
+    /** @return 当前会话是否属于管理员 */
     private boolean isAdmin(UserSession session) {
         return "ADMIN".equals(session.role());
     }
 
+    /** @return 当前会话是否属于超级管理员 */
     private boolean isSuperAdmin(UserSession session) {
         return isSuperAdmin(session.userId());
     }
 
+    /** @return 指定用户是否为超级管理员 */
     private boolean isSuperAdmin(long userId) {
         return userId == 1L;
     }
 
+    /** @return 表格当前选中行的内部编号 */
     private Long selectedId(JTable table) {
         int row = table.getSelectedRow();
         if (row < 0) {
@@ -2857,6 +3009,7 @@ public class DashboardFrame extends JFrame {
         return ((Number) value).longValue();
     }
 
+    /** @return 指定库存的表格标题 */
     private String itemTitle(JTable table, long itemId) {
         for (int row = 0; row < table.getModel().getRowCount(); row++) {
             if (((Number) table.getModel().getValueAt(row, 0)).longValue() == itemId) {
@@ -2866,14 +3019,17 @@ public class DashboardFrame extends JFrame {
         return "库存批次 " + itemId;
     }
 
+    /** @return 库存状态的中文文本 */
     private String itemStatus(Object status) {
         return ((Number) status).intValue() == 1 ? "可用" : "停用";
     }
 
+    /** @return 用户状态的中文文本 */
     private String userStatus(Object status) {
         return ((Number) status).intValue() == 1 ? "启用" : "禁用";
     }
 
+    /** @return 用户角色的中文文本 */
     private String roleText(Object userId, Object role) {
         if (((Number) userId).longValue() == 1L) {
             return "超级管理员";
@@ -2881,22 +3037,27 @@ public class DashboardFrame extends JFrame {
         return "ADMIN".equals(role) ? "管理员" : "普通用户";
     }
 
+    /** @return 数量的显示文本 */
     private String amountText(Object amount) {
         return amount instanceof BigDecimal value ? value.toPlainString() : String.valueOf(amount);
     }
 
+    /** @return 对象的非空显示文本 */
     private String valueText(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
+    /** @return 空字符串对应的占位文本 */
     private String blankText(String value) {
         return value == null || value.isBlank() ? "未填写" : value;
     }
 
+    /** @return 数值对象的显示文本 */
     private String numberText(Object value) {
         return value instanceof Number number ? String.format("%.2f", number.doubleValue()) : String.valueOf(value);
     }
 
+    /** @return 申请状态的中文文本 */
     private String orderStatus(Object status) {
         int value = ((Number) status).intValue();
         return switch (value) {
@@ -2906,6 +3067,7 @@ public class DashboardFrame extends JFrame {
         };
     }
 
+    /** 显示业务操作结果。 */
     private void showResult(BusinessResult result) {
         if (result.success()) {
             JOptionPane.showMessageDialog(this, result.message(), "操作成功", JOptionPane.INFORMATION_MESSAGE);
@@ -2914,20 +3076,24 @@ public class DashboardFrame extends JFrame {
         warn(result.message());
     }
 
+    /** 显示警告提示。 */
     private void warn(String message) {
         JOptionPane.showMessageDialog(this, message, "操作失败", JOptionPane.WARNING_MESSAGE);
     }
 
+    /** @return 用户是否确认当前操作 */
     private boolean confirm(String message) {
         return JOptionPane.showConfirmDialog(this, message, "确认操作", JOptionPane.OK_CANCEL_OPTION)
             == JOptionPane.OK_OPTION;
     }
 
+    /** 刷新当前主模块。 */
     private void refreshMain() {
         mainPanel.revalidate();
         mainPanel.repaint();
     }
 
+    /** 更新侧边导航的选中样式。 */
     private void selectNav(JButton selected) {
         for (JButton button : navButtons) {
             boolean active = button == selected;
@@ -2938,15 +3104,19 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 表示柱状图中的标签和值。 */
     private record ChartRow(String label, double value) {
     }
 
+    /** 表示筛选项的名称和目标列。 */
     private record FilterChoice(String label, int column) {
     }
 
+    /** 将文档变化事件统一转换为一个回调。 */
     private static class SimpleDocumentListener implements DocumentListener {
         private final Runnable action;
 
+        /** 创建文档变化监听器。 */
         SimpleDocumentListener(Runnable action) {
             this.action = action;
         }
@@ -2967,11 +3137,13 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 绘制简单横向柱状图。 */
     private static class BarChartPanel extends JPanel {
         private List<ChartRow> rows = List.of();
         private final double fixedMax;
         private final String valueSuffix;
 
+        /** 创建指定最大值和单位后缀的柱状图。 */
         BarChartPanel(double fixedMax, String valueSuffix) {
             this.fixedMax = fixedMax;
             this.valueSuffix = valueSuffix;
@@ -3021,10 +3193,12 @@ public class DashboardFrame extends JFrame {
             g.dispose();
         }
 
+        /** @return 柱状图数值的显示文本 */
         private String valueText(double value) {
             return value == Math.rint(value) ? String.valueOf((int) value) : String.format("%.1f", value);
         }
 
+        /** @return 限制长度后的柱状图标签 */
         private String ellipsis(String text, int maxLength) {
             if (text == null || text.length() <= maxLength) {
                 return text == null ? "" : text;
@@ -3033,6 +3207,7 @@ public class DashboardFrame extends JFrame {
         }
     }
 
+    /** 表示带编号和值的下拉框选项。 */
     private record Option(long id, String label) {
         @Override
         public String toString() {

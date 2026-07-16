@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/** 访问 MySQL 用血申请，并处理审批相关事务。 */
 public class OrderDAO extends BaseDAO {
+    /** @return 新申请编号 */
     public long createOrder(long userId, long itemId, BigDecimal amount) {
         String sql = "INSERT INTO orders (user_id, item_id, amount) VALUES (?, ?, ?)";
         try (Connection connection = getConnection()) {
@@ -42,21 +44,25 @@ public class OrderDAO extends BaseDAO {
         }
     }
 
+    /** @return 指定申请，不存在时为空 */
     public Optional<Map<String, Object>> findById(long orderId) {
         String sql = "SELECT * FROM orders WHERE order_id = ?";
         return queryOne(sql, statement -> statement.setLong(1, orderId));
     }
 
+    /** @return 指定用户的申请记录 */
     public List<Map<String, Object>> findByUser(long userId) {
         String sql = "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC";
         return queryList(sql, statement -> statement.setLong(1, userId));
     }
 
+    /** @return 全部申请记录 */
     public List<Map<String, Object>> findAll() {
         return queryList("SELECT * FROM orders ORDER BY created_at DESC, order_id DESC", statement -> {
         });
     }
 
+    /** @return 按库存批次汇总的申请次数 */
     public List<Map<String, Object>> countByItem() {
         String sql = """
             SELECT item_id, COUNT(*) AS order_count
@@ -67,6 +73,7 @@ public class OrderDAO extends BaseDAO {
         });
     }
 
+    /** @return 指定年月的分类用血报表 */
     public List<Map<String, Object>> monthlyReport(int year, int month) {
         try (Connection connection = getConnection();
              CallableStatement statement = connection.prepareCall("{CALL sp_monthly_report(?, ?)}")) {
@@ -89,6 +96,7 @@ public class OrderDAO extends BaseDAO {
         }
     }
 
+    /** @return 是否更新待审批申请的状态 */
     public boolean updateStatus(long orderId, int status) {
         String sql = "UPDATE orders SET status = ? WHERE order_id = ? AND status = 0";
         return update(sql, statement -> {
@@ -97,6 +105,7 @@ public class OrderDAO extends BaseDAO {
         });
     }
 
+    /** @return 是否更新指定用户的待审批申请 */
     public boolean updatePendingOrder(long userId, long orderId, long itemId, BigDecimal amount) {
         String sql = "UPDATE orders SET item_id = ?, amount = ? WHERE order_id = ? AND user_id = ? AND status = 0";
         return update(sql, statement -> {
@@ -107,6 +116,7 @@ public class OrderDAO extends BaseDAO {
         });
     }
 
+    /** @return 是否删除指定用户的待审批申请 */
     public boolean deletePendingByUser(long userId, long orderId) {
         String sql = "DELETE FROM orders WHERE order_id = ? AND user_id = ? AND status = 0";
         return update(sql, statement -> {
@@ -115,6 +125,12 @@ public class OrderDAO extends BaseDAO {
         });
     }
 
+    /**
+     * 在同一事务中完成申请并扣减库存。
+     *
+     * @param orderId 申请编号
+     * @return 是否审批成功
+     */
     public boolean completeOrder(long orderId) {
         String selectSql = """
             SELECT o.item_id, o.amount, o.status, i.amount AS item_amount, i.status AS item_status
@@ -174,6 +190,12 @@ public class OrderDAO extends BaseDAO {
         }
     }
 
+    /**
+     * 删除申请；已完成申请会在同一事务中恢复库存。
+     *
+     * @param orderId 申请编号
+     * @return 是否删除成功
+     */
     public boolean deleteById(long orderId) {
         String selectSql = "SELECT item_id, amount, status FROM orders WHERE order_id = ? FOR UPDATE";
         String restoreSql = "UPDATE items SET amount = amount + ?, status = 1 WHERE item_id = ?";

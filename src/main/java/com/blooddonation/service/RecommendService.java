@@ -17,6 +17,9 @@ import java.util.Map;
 import java.util.Set;
 import org.bson.Document;
 
+/**
+ * 合并 MySQL 主数据与 MongoDB 评分、详情和热度，生成库存洞察与推荐。
+ */
 public class RecommendService {
     private final ItemDAO itemDAO;
     private final CategoryDAO categoryDAO;
@@ -25,10 +28,12 @@ public class RecommendService {
     private final OrderDAO orderDAO;
     private final LogDAO logDAO;
 
+    /** 使用默认 DAO 创建推荐服务。 */
     public RecommendService() {
         this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new LogDAO());
     }
 
+    /** 使用指定 DAO 创建可测试的推荐服务。 */
     RecommendService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO, LogDAO logDAO) {
         this.itemDAO = itemDAO;
         this.categoryDAO = categoryDAO;
@@ -38,6 +43,11 @@ public class RecommendService {
         this.logDAO = logDAO;
     }
 
+    /**
+     * 汇总全部库存的分类、详情、评分、热度和申请数量。
+     *
+     * @return 库存综合信息
+     */
     public List<ItemInsightDTO> findItemInsights() {
         Map<Long, String> categories = categoryNames();
         Map<Long, Document> ratings = documentsByItem(commentDAO.ratingSummary());
@@ -49,6 +59,13 @@ public class RecommendService {
             .toList();
     }
 
+    /**
+     * 按用户相关分类、行为热度和平均评分生成推荐。
+     *
+     * @param userId 用户编号
+     * @param limit 最大返回数量
+     * @return 推荐列表
+     */
     public List<RecommendationDTO> recommendItems(long userId, int limit) {
         if (userId <= 0 || limit <= 0) {
             return List.of();
@@ -67,6 +84,7 @@ public class RecommendService {
             .toList();
     }
 
+    /** @return 合并单条库存及其跨库统计后的综合信息 */
     private ItemInsightDTO insight(
         Map<String, Object> row,
         Map<Long, String> categories,
@@ -95,6 +113,7 @@ public class RecommendService {
         );
     }
 
+    /** @return 按分类编号索引的分类名称 */
     private Map<Long, String> categoryNames() {
         Map<Long, String> names = new HashMap<>();
         for (Map<String, Object> row : categoryDAO.findAll()) {
@@ -103,6 +122,7 @@ public class RecommendService {
         return names;
     }
 
+    /** @return 按库存编号索引的 MongoDB 统计文档 */
     private Map<Long, Document> documentsByItem(List<Document> documents) {
         Map<Long, Document> rows = new HashMap<>();
         for (Document document : documents) {
@@ -114,6 +134,7 @@ public class RecommendService {
         return rows;
     }
 
+    /** @return 按库存编号索引的申请次数 */
     private Map<Long, Integer> orderCounts() {
         Map<Long, Integer> counts = new HashMap<>();
         for (Map<String, Object> row : orderDAO.countByItem()) {
@@ -122,6 +143,7 @@ public class RecommendService {
         return counts;
     }
 
+    /** @return 用户申请或访问过的相关分类 */
     private Set<Long> relatedCategories(long userId) {
         Set<Long> categories = new HashSet<>();
         for (Map<String, Object> order : orderDAO.findByUser(userId)) {
@@ -139,12 +161,14 @@ public class RecommendService {
         return categories;
     }
 
+    /** @return 指定库存的分类编号 */
     private long categoryId(long itemId) {
         return itemDAO.findById(itemId)
             .map(row -> ((Number) row.get("category_id")).longValue())
             .orElse(0L);
     }
 
+    /** @return 可解析的编号，无效值返回 {@code null} */
     private Long parseId(Object value) {
         if (value == null || "NONE".equals(String.valueOf(value))) {
             return null;
@@ -156,10 +180,12 @@ public class RecommendService {
         }
     }
 
+    /** @return 数值的整数形式，非数值返回 0 */
     private int number(Object value) {
         return value instanceof Number number ? number.intValue() : 0;
     }
 
+    /** @return 数值的双精度形式，非数值返回 0 */
     private double doubleNumber(Object value) {
         return value instanceof Number number ? number.doubleValue() : 0D;
     }

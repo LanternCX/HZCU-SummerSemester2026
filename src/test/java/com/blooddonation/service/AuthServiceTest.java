@@ -13,7 +13,9 @@ import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.mindrot.jbcrypt.BCrypt;
 
+/** 验证注册、登录、密码哈希和认证日志行为。 */
 class AuthServiceTest {
+    /** 验证密码使用 BCrypt 哈希。 */
     @Test
     void hashPasswordUsesBCrypt() {
         String passwordHash = AuthService.hashPassword("user123");
@@ -22,6 +24,7 @@ class AuthServiceTest {
         assertTrue(BCrypt.checkpw("user123", passwordHash));
     }
 
+    /** 验证启用用户能够登录并记录成功日志。 */
     @Test
     void loginAcceptsActiveUserAndWritesLog() {
         FakeUserDAO users = new FakeUserDAO();
@@ -35,6 +38,7 @@ class AuthServiceTest {
         assertEquals("LOGIN", logs.logType);
     }
 
+    /** 验证停用用户无法登录。 */
     @Test
     void loginRejectsDisabledUser() {
         FakeUserDAO users = new FakeUserDAO();
@@ -47,6 +51,7 @@ class AuthServiceTest {
         assertEquals("账号已停用", result.message());
     }
 
+    /** 验证错误密码会写入警告日志。 */
     @Test
     void loginWritesWarnLogForBadPassword() {
         FakeUserDAO users = new FakeUserDAO();
@@ -60,6 +65,7 @@ class AuthServiceTest {
         assertEquals("登录失败", logs.message);
     }
 
+    /** 验证注册用户保存哈希密码。 */
     @Test
     void registerCreatesActiveUserWithHashedPassword() {
         FakeUserDAO users = new FakeUserDAO();
@@ -74,6 +80,7 @@ class AuthServiceTest {
         assertEquals("USER", users.createdRole);
     }
 
+    /** 验证重复用户名注册被拒绝。 */
     @Test
     void registerRejectsDuplicateUsername() {
         FakeUserDAO users = new FakeUserDAO();
@@ -86,6 +93,7 @@ class AuthServiceTest {
         assertEquals("用户名已存在", result.message());
     }
 
+    /** 验证非法邮箱注册被拒绝。 */
     @Test
     void registerRejectsInvalidEmail() {
         AuthService.RegisterResult result = new AuthService(new FakeUserDAO(), new FakeSystemLogDAO())
@@ -95,6 +103,7 @@ class AuthServiceTest {
         assertEquals("邮箱格式不正确", result.message());
     }
 
+    /** 验证非法手机号注册被拒绝。 */
     @Test
     void registerRejectsInvalidPhone() {
         AuthService.RegisterResult result = new AuthService(new FakeUserDAO(), new FakeSystemLogDAO())
@@ -104,6 +113,7 @@ class AuthServiceTest {
         assertEquals("手机号格式不正确", result.message());
     }
 
+    /** @return 测试使用的用户行 */
     private static Map<String, Object> user(long id, String username, String passwordHash, String role, int status) {
         Map<String, Object> row = new HashMap<>();
         row.put("user_id", id);
@@ -114,6 +124,7 @@ class AuthServiceTest {
         return row;
     }
 
+    /** 提供内存用户数据的测试替身。 */
     private static class FakeUserDAO extends UserDAO {
         private Map<String, Object> user;
         private String createdUsername;
@@ -134,6 +145,7 @@ class AuthServiceTest {
         }
     }
 
+    /** 捕获认证日志的测试替身。 */
     private static class FakeSystemLogDAO extends SystemLogDAO {
         private String logType;
         private String logLevel;

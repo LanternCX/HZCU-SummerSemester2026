@@ -4,6 +4,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 DELIMITER //
 
+-- 生成指定年月的分类用血报表，包括申请量、使用量和状态分布。
 CREATE PROCEDURE `sp_monthly_report`(
   IN `p_year` INT,
   IN `p_month` INT
@@ -25,6 +26,7 @@ BEGIN
   ORDER BY `used_amount` DESC;
 END//
 
+-- 统计指定分类的库存批次数和可用总量；参数为空时统计全部分类。
 CREATE PROCEDURE `sp_category_report`(
   IN `p_category_id` BIGINT
 )
@@ -41,6 +43,7 @@ BEGIN
   ORDER BY c.`category_id`;
 END//
 
+-- 统计指定用户在时间范围内的申请数量、完成用量和状态分布。
 CREATE PROCEDURE `sp_user_order_report`(
   IN `p_user_id` BIGINT,
   IN `p_started_at` DATETIME,

@@ -19,12 +19,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
+/** 验证 MongoDB 系统日志在指定并发规模下完整写入。 */
 @Tag("stress")
 @EnabledIfSystemProperty(named = "stressTests", matches = "true")
 class SystemLogDAOStressTest {
     private static final int LOG_COUNT = 10_000;
     private static final int CONCURRENCY = 50;
 
+    /** 使用 50 个并发任务写入并校验一万条日志。 */
     @Test
     void writesTenThousandLogsWithFiftyConcurrentWorkers() throws Exception {
         String runId = UUID.randomUUID().toString();

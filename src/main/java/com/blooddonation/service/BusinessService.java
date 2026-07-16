@@ -18,6 +18,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.bson.Document;
 
+/**
+ * 统一处理权限、校验、跨数据库协调和核心业务流程。
+ */
 public class BusinessService {
     private static final long SUPER_ADMIN_ID = 1L;
 
@@ -32,26 +35,32 @@ public class BusinessService {
     private final SystemLogDAO systemLogDAO;
     private final RecommendService recommendService;
 
+    /** 使用默认 DAO 创建业务服务。 */
     public BusinessService() {
         this(new ItemDAO(), new CategoryDAO(), new DetailDAO(), new CommentDAO(), new OrderDAO(), new UserDAO(), new ProfileDAO(), new LogDAO(), new SystemLogDAO());
     }
 
+    /** 使用库存相关 DAO 创建测试服务。 */
     BusinessService(ItemDAO itemDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
         this(itemDAO, new CategoryDAO(), detailDAO, new CommentDAO(), orderDAO, new UserDAO());
     }
 
+    /** 使用分类和库存相关 DAO 创建测试服务。 */
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, OrderDAO orderDAO) {
         this(itemDAO, categoryDAO, detailDAO, new CommentDAO(), orderDAO, new UserDAO());
     }
 
+    /** 使用评论相关 DAO 创建测试服务。 */
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO) {
         this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, new UserDAO());
     }
 
+    /** 使用用户相关 DAO 创建测试服务。 */
     BusinessService(ItemDAO itemDAO, CategoryDAO categoryDAO, DetailDAO detailDAO, CommentDAO commentDAO, OrderDAO orderDAO, UserDAO userDAO) {
         this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, new ProfileDAO(), silentLogDAO(), silentSystemLogDAO());
     }
 
+    /** 使用日志相关 DAO 创建测试服务。 */
     BusinessService(
         ItemDAO itemDAO,
         CategoryDAO categoryDAO,
@@ -65,6 +74,7 @@ public class BusinessService {
         this(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, userDAO, new ProfileDAO(), logDAO, systemLogDAO);
     }
 
+    /** 使用全部指定 DAO 创建业务服务。 */
     BusinessService(
         ItemDAO itemDAO,
         CategoryDAO categoryDAO,
@@ -88,6 +98,7 @@ public class BusinessService {
         this.recommendService = new RecommendService(itemDAO, categoryDAO, detailDAO, commentDAO, orderDAO, logDAO);
     }
 
+    /** @return 当前用户可查看的档案列表 */
     public List<Map<String, Object>> findUserProfiles(long userId, boolean admin) {
         if (admin) {
             return profileDAO.findUserProfiles();
@@ -95,6 +106,7 @@ public class BusinessService {
         return userId <= 0 ? List.of() : profileDAO.findUserProfile(userId).stream().toList();
     }
 
+    /** @return 档案保存结果 */
     public BusinessResult saveUserProfile(
         long actorUserId,
         boolean admin,
@@ -158,6 +170,7 @@ public class BusinessService {
         return BusinessResult.ok(userId, "保存成功");
     }
 
+    /** @return 用户删除结果 */
     public BusinessResult deleteUser(long actorUserId, boolean admin, long userId) {
         if (!admin || userId <= 0) {
             return BusinessResult.fail("无权删除该用户");
@@ -180,10 +193,12 @@ public class BusinessService {
         }
     }
 
+    /** @return 全部分类 */
     public List<Map<String, Object>> findCategories() {
         return categoryDAO.findAll();
     }
 
+    /** @return 分类创建结果 */
     public BusinessResult createCategory(String name, Long parentId) {
         if (name == null || name.trim().isEmpty()) {
             return BusinessResult.fail("请输入分类名称");
@@ -196,6 +211,7 @@ public class BusinessService {
         return BusinessResult.ok(categoryId, "保存成功");
     }
 
+    /** @return 分类更新结果 */
     public BusinessResult updateCategory(long categoryId, String name, Long parentId) {
         if (categoryId <= 0) {
             return BusinessResult.fail("请选择有效分类");
@@ -218,6 +234,7 @@ public class BusinessService {
         return BusinessResult.ok(categoryId, "保存成功");
     }
 
+    /** @return 分类删除结果 */
     public BusinessResult deleteCategory(long categoryId) {
         if (categoryId <= 0) {
             return BusinessResult.fail("请选择有效分类");
@@ -240,10 +257,12 @@ public class BusinessService {
         }
     }
 
+    /** @return 全部库存批次 */
     public List<Map<String, Object>> findItems() {
         return itemDAO.findAll();
     }
 
+    /** @return 库存批次创建结果 */
     public BusinessResult createItem(
         String title,
         long categoryId,
@@ -264,6 +283,7 @@ public class BusinessService {
         return BusinessResult.ok(itemId, "保存成功");
     }
 
+    /** @return 库存批次更新结果 */
     public BusinessResult updateItem(
         long itemId,
         String title,
@@ -294,6 +314,7 @@ public class BusinessService {
         return BusinessResult.ok(itemId, "保存成功");
     }
 
+    /** @return 库存批次删除结果 */
     public BusinessResult deleteItem(long itemId) {
         if (itemId <= 0) {
             return BusinessResult.fail("请选择有效业务数据");
@@ -305,6 +326,7 @@ public class BusinessService {
         return BusinessResult.ok(itemId, "删除成功");
     }
 
+    /** @return 库存详情保存结果 */
     public BusinessResult saveItemDetail(long itemId, String description, List<String> images, Document metadata) {
         if (itemId <= 0) {
             return BusinessResult.fail("请选择有效业务数据");
@@ -317,14 +339,17 @@ public class BusinessService {
         return BusinessResult.ok(itemId, "保存成功");
     }
 
+    /** @return 指定库存的扩展详情 */
     public Optional<Document> findItemDetail(long itemId) {
         return itemId <= 0 ? Optional.empty() : detailDAO.findByItemId(String.valueOf(itemId));
     }
 
+    /** @return 指定库存的最新评论 */
     public List<Document> findItemComments(long itemId) {
         return itemId <= 0 ? List.of() : commentDAO.findByItemId(String.valueOf(itemId), 30);
     }
 
+    /** @return 评论创建结果 */
     public BusinessResult createComment(long userId, long itemId, String content, int rating, List<String> tags) {
         if (userId <= 0 || itemId <= 0) {
             return BusinessResult.fail("请选择有效用户和库存批次");
@@ -344,6 +369,7 @@ public class BusinessService {
         return BusinessResult.ok(itemId, "评论已发布");
     }
 
+    /** @return 评论删除结果 */
     public BusinessResult deleteComment(long userId, boolean admin, String commentId) {
         if (userId <= 0 || commentId == null || commentId.isBlank()) {
             return BusinessResult.fail("请选择有效评论");
@@ -359,6 +385,7 @@ public class BusinessService {
             : BusinessResult.fail("评论不存在或无权删除");
     }
 
+    /** @return 用户名；用户不存在时返回可读占位文本 */
     public String findUsername(long userId) {
         if (userId <= 0) {
             return "未知用户";
@@ -368,6 +395,7 @@ public class BusinessService {
             .orElse("用户 " + userId);
     }
 
+    /** @return 用血申请创建结果 */
     public BusinessResult createOrder(long userId, long itemId, BigDecimal amount) {
         if (userId <= 0 || itemId <= 0) {
             return BusinessResult.fail("请选择有效用户和业务数据");
@@ -392,10 +420,12 @@ public class BusinessService {
         return BusinessResult.ok(orderId, "记录创建成功");
     }
 
+    /** @return 指定用户的申请记录 */
     public List<Map<String, Object>> findOrdersByUser(long userId) {
         return userId <= 0 ? List.of() : orderDAO.findByUser(userId);
     }
 
+    /** @return 当前角色可查看的申请记录 */
     public List<Map<String, Object>> findOrders(long userId, boolean admin) {
         if (admin) {
             return orderDAO.findAll();
@@ -403,6 +433,7 @@ public class BusinessService {
         return findOrdersByUser(userId);
     }
 
+    /** @return 用户自己的待审批申请更新结果 */
     public BusinessResult updateOwnOrder(long userId, long orderId, long itemId, BigDecimal amount) {
         if (userId <= 0 || orderId <= 0 || itemId <= 0) {
             return BusinessResult.fail("请选择有效用户、记录和业务数据");
@@ -429,6 +460,7 @@ public class BusinessService {
         return BusinessResult.ok(orderId, "保存成功");
     }
 
+    /** @return 申请审批或取消结果 */
     public BusinessResult updateOrderStatus(long orderId, int status) {
         if (orderId <= 0 || status < 0 || status > 2) {
             return BusinessResult.fail("请选择有效记录状态");
@@ -441,6 +473,7 @@ public class BusinessService {
         return BusinessResult.ok(orderId, "状态更新成功");
     }
 
+    /** @return 管理员删除申请的结果 */
     public BusinessResult deleteOrder(long orderId) {
         if (orderId <= 0) {
             return BusinessResult.fail("请选择有效记录");
@@ -452,6 +485,7 @@ public class BusinessService {
         return BusinessResult.ok(orderId, "删除成功");
     }
 
+    /** @return 用户删除自己待审批申请的结果 */
     public BusinessResult deleteOwnOrder(long userId, long orderId) {
         if (userId <= 0 || orderId <= 0) {
             return BusinessResult.fail("请选择有效用户和记录");
@@ -463,18 +497,22 @@ public class BusinessService {
         return BusinessResult.ok(orderId, "删除成功");
     }
 
+    /** @return 操作次数最高的库存统计 */
     public List<Document> topActionItems(int limit) {
         return logDAO.topItems(limit);
     }
 
+    /** @return 全局评论评分汇总 */
     public List<Document> commentRatingSummary() {
         return commentDAO.ratingSummary();
     }
 
+    /** @return 指定用户的评论评分汇总 */
     public List<Document> commentRatingSummaryByUser(long userId) {
         return userId <= 0 ? List.of() : commentDAO.ratingSummaryByUser(String.valueOf(userId));
     }
 
+    /** @return 指定年月的月度用血报表 */
     public List<Map<String, Object>> monthlyReport(int year, int month) {
         if (year < 2000 || month < 1 || month > 12) {
             return List.of();
@@ -482,30 +520,37 @@ public class BusinessService {
         return orderDAO.monthlyReport(year, month);
     }
 
+    /** @return 系统日志审计汇总 */
     public List<Document> auditSummary() {
         return systemLogDAO.auditSummary();
     }
 
+    /** @return 库存综合信息 */
     public List<ItemInsightDTO> findItemInsights() {
         return recommendService.findItemInsights();
     }
 
+    /** @return 指定用户的库存推荐 */
     public List<RecommendationDTO> recommendItems(long userId, int limit) {
         return recommendService.recommendItems(userId, limit);
     }
 
+    /** @return 指定类型的最近系统日志 */
     public List<Document> findSystemLogs(String logType, int limit) {
         return systemLogDAO.findByType(logType, limit);
     }
 
+    /** @return 指定用户的最近行为日志 */
     public List<Document> findUserActionLogs(long userId, int limit) {
         return userId <= 0 ? List.of() : logDAO.findByUserId(String.valueOf(userId), limit);
     }
 
+    /** @return 当前角色可查看的行为日志 */
     public List<Document> findActionLogs(long userId, boolean admin, int limit) {
         return admin ? logDAO.findRecent(limit) : findUserActionLogs(userId, limit);
     }
 
+    /** 写入用户业务行为日志。 */
     private void logAction(long userId, long itemId, String actionType) {
         logDAO.insertActionLog(
             userId <= 0 ? "SYSTEM" : String.valueOf(userId),
@@ -516,6 +561,7 @@ public class BusinessService {
         );
     }
 
+    /** @return 忽略写入的行为日志 DAO */
     private static LogDAO silentLogDAO() {
         return new LogDAO() {
             @Override
@@ -524,18 +570,22 @@ public class BusinessService {
         };
     }
 
+    /** @return 忽略写入的系统日志 DAO */
     private static SystemLogDAO silentSystemLogDAO() {
         return new SystemLogDAO();
     }
 
+    /** @return 去除首尾空白后的非空字符串 */
     private String clean(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /** @return 非空元数据文档 */
     private Document safe(Document metadata) {
         return metadata == null ? new Document() : metadata;
     }
 
+    /** @return 指定分类是否位于目标父分类的后代树中 */
     private boolean isCategoryDescendant(long categoryId, long parentId, List<Map<String, Object>> rows) {
         for (Map<String, Object> row : rows) {
             Object rowParentId = row.get("parent_id");
@@ -549,15 +599,25 @@ public class BusinessService {
         return false;
     }
 
+    /** @return 指定用户是否为受保护的超级管理员 */
     private boolean isSuperAdmin(long userId) {
         return userId == SUPER_ADMIN_ID;
     }
 
+    /**
+     * 表示业务操作是否成功、提示信息及关联编号。
+     *
+     * @param success 是否成功
+     * @param message 用户提示
+     * @param id 关联业务编号
+     */
     public record BusinessResult(boolean success, String message, long id) {
+        /** @return 成功业务结果 */
         static BusinessResult ok(long id, String message) {
             return new BusinessResult(true, message, id);
         }
 
+        /** @return 失败业务结果 */
         static BusinessResult fail(String message) {
             return new BusinessResult(false, message, 0L);
         }

@@ -9,11 +9,14 @@ import java.util.Date;
 import java.util.List;
 import org.bson.Document;
 
+/** 访问 MongoDB 用户行为日志与热度统计。 */
 public class LogDAO extends MongoBaseDAO {
+    /** 创建绑定用户行为日志集合的 DAO。 */
     public LogDAO() {
         super("action_logs");
     }
 
+    /** 写入一条用户行为日志。 */
     public void insertActionLog(String userId, String itemId, String actionType, int durationSeconds, Document clientInfo) {
         Document document = new Document("user_id", userId)
             .append("item_id", itemId)
@@ -24,6 +27,7 @@ public class LogDAO extends MongoBaseDAO {
         collection().insertOne(document);
     }
 
+    /** @return 指定用户的最近行为日志 */
     public List<Document> findByUserId(String userId, int limit) {
         return collection()
             .find(Filters.eq("user_id", userId))
@@ -32,6 +36,7 @@ public class LogDAO extends MongoBaseDAO {
             .into(new ArrayList<>());
     }
 
+    /** @return 全局最近行为日志 */
     public List<Document> findRecent(int limit) {
         return collection()
             .find()
@@ -40,6 +45,7 @@ public class LogDAO extends MongoBaseDAO {
             .into(new ArrayList<>());
     }
 
+    /** @return 按操作次数排序的库存热度统计 */
     public List<Document> topItems(int limit) {
         List<Document> pipeline = List.of(
             new Document("$group", new Document("_id", "$item_id").append("action_count", new Document("$sum", 1))),

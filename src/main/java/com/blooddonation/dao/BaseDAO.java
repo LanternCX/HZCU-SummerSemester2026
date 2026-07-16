@@ -14,12 +14,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 封装 MySQL DAO 共用的连接、参数绑定和结果映射逻辑。
+ */
 public abstract class BaseDAO {
+    /**
+     * 为预编译语句绑定参数。
+     */
     @FunctionalInterface
     protected interface Binder {
+        /**
+         * 绑定 SQL 参数。
+         *
+         * @param statement 待绑定的预编译语句
+         * @throws SQLException 参数绑定失败
+         */
         void bind(PreparedStatement statement) throws SQLException;
     }
 
+    /**
+     * 获取 MySQL 连接，并统一转换连接异常。
+     *
+     * @return 数据库连接
+     */
     protected Connection getConnection() {
         try {
             return MySQLDBUtil.getConnection();
@@ -28,6 +45,13 @@ public abstract class BaseDAO {
         }
     }
 
+    /**
+     * 执行插入并返回数据库生成的主键。
+     *
+     * @param sql 插入语句
+     * @param binder 参数绑定器
+     * @return 生成的主键；未生成时返回 0
+     */
     protected long insert(String sql, Binder binder) {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -41,6 +65,13 @@ public abstract class BaseDAO {
         }
     }
 
+    /**
+     * 执行更新或删除语句。
+     *
+     * @param sql 更新或删除语句
+     * @param binder 参数绑定器
+     * @return 是否影响至少一条记录
+     */
     protected boolean update(String sql, Binder binder) {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -51,11 +82,25 @@ public abstract class BaseDAO {
         }
     }
 
+    /**
+     * 查询第一条记录。
+     *
+     * @param sql 查询语句
+     * @param binder 参数绑定器
+     * @return 第一条记录，不存在时为空
+     */
     protected Optional<Map<String, Object>> queryOne(String sql, Binder binder) {
         List<Map<String, Object>> rows = queryList(sql, binder);
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
+    /**
+     * 查询记录列表，并按列名映射为键值对。
+     *
+     * @param sql 查询语句
+     * @param binder 参数绑定器
+     * @return 查询结果列表
+     */
     protected List<Map<String, Object>> queryList(String sql, Binder binder) {
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -72,6 +117,7 @@ public abstract class BaseDAO {
         }
     }
 
+    /** @return 将当前结果集行转换为按列名索引的映射 */
     private Map<String, Object> toMap(ResultSet resultSet) throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         Map<String, Object> row = new LinkedHashMap<>();

@@ -19,15 +19,22 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
+/**
+ * 提供用户登录和注册入口。
+ */
 public class LoginFrame extends JFrame {
     private final AuthService authService;
     private final JTextField usernameField = new JTextField(18);
     private final JPasswordField passwordField = new JPasswordField(18);
 
+    /**
+     * 使用默认认证服务创建登录窗口。
+     */
     public LoginFrame() {
         this(new AuthService());
     }
 
+    /** 使用指定认证服务创建可测试的登录窗口。 */
     LoginFrame(AuthService authService) {
         this.authService = authService;
         setTitle("献血管理系统登录");
@@ -37,6 +44,7 @@ public class LoginFrame extends JFrame {
         setContentPane(content());
     }
 
+    /** @return 登录窗口主体 */
     private JPanel content() {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Ui.PAGE);
@@ -45,6 +53,7 @@ public class LoginFrame extends JFrame {
         return root;
     }
 
+    /** @return 品牌展示区域 */
     private JPanel brandPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setPreferredSize(new Dimension(300, 0));
@@ -63,6 +72,7 @@ public class LoginFrame extends JFrame {
         return panel;
     }
 
+    /** @return 登录表单区域 */
     private JPanel formPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Ui.PAGE);
@@ -104,6 +114,7 @@ public class LoginFrame extends JFrame {
         return panel;
     }
 
+    /** 向表单添加带标签的输入框。 */
     private void addField(JPanel panel, GridBagConstraints c, int row, String label, JTextField field) {
         JLabel fieldLabel = new JLabel(label);
         fieldLabel.setForeground(Ui.TEXT);
@@ -126,6 +137,7 @@ public class LoginFrame extends JFrame {
         c.weightx = 0.0;
     }
 
+    /** 执行登录并打开主界面。 */
     private void login() {
         try {
             AuthService.LoginResult result = authService.login(
@@ -145,6 +157,7 @@ public class LoginFrame extends JFrame {
         }
     }
 
+    /** 打开注册对话框并提交注册信息。 */
     private void register() {
         JTextField newUsername = new JTextField(18);
         JPasswordField newPassword = new JPasswordField(18);

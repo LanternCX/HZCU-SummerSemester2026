@@ -9,7 +9,9 @@ import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
+/** 验证 DAO 包结构、继承关系和事务入口。 */
 class DAOStructureTest {
+    /** 验证课程要求的 DAO 类均位于预期包中。 */
     @Test
     void reqDaoClassesExistInExpectedPackages() {
         String[] classNames = {
@@ -31,6 +33,7 @@ class DAOStructureTest {
         }
     }
 
+    /** 验证 MySQL DAO 统一继承基础 DAO。 */
     @Test
     void mysqlDaoClassesExtendBaseDao() throws Exception {
         Class<?> baseDao = Class.forName("com.blooddonation.dao.BaseDAO");
@@ -47,6 +50,7 @@ class DAOStructureTest {
         }
     }
 
+    /** 验证 MongoDB DAO 统一继承基础 DAO。 */
     @Test
     void mongoDaoClassesExtendMongoBaseDao() throws Exception {
         Class<?> baseDao = Class.forName("com.blooddonation.dao.MongoBaseDAO");
@@ -62,6 +66,7 @@ class DAOStructureTest {
         }
     }
 
+    /** 验证申请 DAO 暴露显式事务创建方法。 */
     @Test
     void orderDaoExposesExplicitTransactionalCreateOrderMethod() throws Exception {
         Class<?> orderDao = Class.forName("com.blooddonation.dao.mysql.OrderDAO");

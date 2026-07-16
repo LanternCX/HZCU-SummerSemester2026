@@ -9,7 +9,9 @@ import java.util.Map;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 
+/** 验证主界面统计数据转换和日期显示。 */
 class DashboardFrameTest {
+    /** 验证热度统计忽略已删除库存。 */
     @Test
     void statisticsRowsIgnoreDeletedItems() throws Exception {
         Method method = DashboardFrame.class.getDeclaredMethod("actionChartRows", Map.class, List.class);
@@ -25,11 +27,13 @@ class DashboardFrameTest {
         assertEquals(8.0, value(rows.get(0), "value"));
     }
 
+    /** 验证 MySQL 日期时间可以转换为年月文本。 */
     @Test
     void monthTextSupportsMysqlDateTimeValues() {
         assertEquals("2026-07", DashboardFrame.monthText(LocalDateTime.of(2026, 7, 19, 9, 30)));
     }
 
+    /** @return 通过反射读取的记录组件值 */
     private Object value(Object row, String name) throws Exception {
         Method method = row.getClass().getDeclaredMethod(name);
         method.setAccessible(true);

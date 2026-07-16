@@ -4,6 +4,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 DELIMITER //
 
+-- 新增库存前校验数量和状态，阻止非法数据写入。
 CREATE TRIGGER `trg_items_before_insert`
 BEFORE INSERT ON `items`
 FOR EACH ROW
@@ -17,6 +18,7 @@ BEGIN
   END IF;
 END//
 
+-- 修改库存前校验数量和状态，并刷新更新时间。
 CREATE TRIGGER `trg_items_before_update`
 BEFORE UPDATE ON `items`
 FOR EACH ROW
@@ -32,6 +34,7 @@ BEGIN
   SET NEW.`updated_at` = CURRENT_TIMESTAMP;
 END//
 
+-- 新增申请前校验申请数量和初始状态。
 CREATE TRIGGER `trg_orders_before_insert`
 BEFORE INSERT ON `orders`
 FOR EACH ROW
@@ -45,6 +48,7 @@ BEGIN
   END IF;
 END//
 
+-- 修改申请前校验状态流转；审批通过时确认库存可用且数量充足。
 CREATE TRIGGER `trg_orders_before_update`
 BEFORE UPDATE ON `orders`
 FOR EACH ROW

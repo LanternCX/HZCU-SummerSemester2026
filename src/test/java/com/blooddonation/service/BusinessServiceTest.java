@@ -23,7 +23,9 @@ import java.util.Optional;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 
+/** 验证核心业务校验、权限、跨库协调、报表和推荐行为。 */
 class BusinessServiceTest {
+    /** 验证分类和库存查询返回展示数据。 */
     @Test
     void findCategoriesAndItemsReturnDisplayRows() {
         FakeCategoryDAO categories = new FakeCategoryDAO();
@@ -37,6 +39,7 @@ class BusinessServiceTest {
         assertEquals(3L, service.findItems().get(0).get("item_id"));
     }
 
+    /** 验证创建分类时清理名称并保存父分类。 */
     @Test
     void createCategoryTrimsNameAndStoresParent() {
         FakeCategoryDAO categories = new FakeCategoryDAO();
@@ -51,6 +54,7 @@ class BusinessServiceTest {
         assertEquals(1L, categories.createdParentId);
     }
 
+    /** 验证分类不能选择自己作为父分类。 */
     @Test
     void updateCategoryRejectsSelfParent() {
         BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), new FakeCategoryDAO(), new FakeDetailDAO(), new FakeOrderDAO())
@@ -60,6 +64,7 @@ class BusinessServiceTest {
         assertEquals("父分类不能选择自己", result.message());
     }
 
+    /** 验证分类不能选择子分类作为父分类。 */
     @Test
     void updateCategoryRejectsChildParent() {
         FakeCategoryDAO categories = new FakeCategoryDAO();
@@ -75,6 +80,7 @@ class BusinessServiceTest {
         assertEquals("父分类不能选择子分类", result.message());
     }
 
+    /** 验证可删除未被使用的分类。 */
     @Test
     void deleteCategoryDeletesSelectedCategory() {
         FakeItemDAO items = new FakeItemDAO();
@@ -88,6 +94,7 @@ class BusinessServiceTest {
         assertEquals(3L, categories.deletedCategoryId);
     }
 
+    /** 验证包含子分类的分类不能删除。 */
     @Test
     void deleteCategoryRejectsCategoryWithChildren() {
         FakeCategoryDAO categories = new FakeCategoryDAO();
@@ -104,6 +111,7 @@ class BusinessServiceTest {
         assertEquals(0L, categories.deletedCategoryId);
     }
 
+    /** 验证被库存使用的分类不能删除。 */
     @Test
     void deleteCategoryRejectsCategoryUsedByInventory() {
         FakeItemDAO items = new FakeItemDAO();
@@ -119,6 +127,7 @@ class BusinessServiceTest {
         assertEquals(0L, categories.deletedCategoryId);
     }
 
+    /** 验证创建库存时同时写入主数据和详情。 */
     @Test
     void createItemStoresMysqlRowAndMongoDetail() {
         FakeItemDAO items = new FakeItemDAO();
@@ -135,6 +144,7 @@ class BusinessServiceTest {
         assertEquals("A", details.metadata.getString("blood_type"));
     }
 
+    /** 验证更新库存时同时更新主数据和详情。 */
     @Test
     void updateItemUpdatesMysqlRowAndMongoDetail() {
         FakeItemDAO items = new FakeItemDAO();
@@ -150,6 +160,7 @@ class BusinessServiceTest {
         assertEquals("更新详情", details.description);
     }
 
+    /** 验证删除库存时同时删除主数据和详情。 */
     @Test
     void deleteItemDeletesMysqlRowAndMongoDetail() {
         FakeItemDAO items = new FakeItemDAO();
@@ -162,6 +173,7 @@ class BusinessServiceTest {
         assertEquals("3", details.deletedItemId);
     }
 
+    /** 验证不存在的库存不能保存详情。 */
     @Test
     void saveItemDetailRejectsMissingItem() {
         BusinessService.BusinessResult result = new BusinessService(new FakeItemDAO(), new FakeDetailDAO(), new FakeOrderDAO())
@@ -171,6 +183,7 @@ class BusinessServiceTest {
         assertEquals("业务数据不存在", result.message());
     }
 
+    /** 验证可以读取 MongoDB 库存详情。 */
     @Test
     void findItemDetailReturnsMongoDetail() {
         FakeDetailDAO details = new FakeDetailDAO();
@@ -182,6 +195,7 @@ class BusinessServiceTest {
         assertEquals("详情", detail.get().getString("description"));
     }
 
+    /** 验证评论要求库存存在且评分合法。 */
     @Test
     void createCommentRequiresExistingItemAndValidRating() {
         FakeItemDAO items = new FakeItemDAO();
@@ -204,6 +218,7 @@ class BusinessServiceTest {
         assertEquals("评分必须在 1 到 5 之间", invalid.message());
     }
 
+    /** 验证评论仅允许管理员或作者删除。 */
     @Test
     void deleteCommentAllowsAdminOrOwnerOnly() {
         FakeCommentDAO comments = new FakeCommentDAO();
@@ -220,6 +235,7 @@ class BusinessServiceTest {
         assertEquals("2", comments.deletedOwnUserId);
     }
 
+    /** 验证用户编号可以转换为显示名称。 */
     @Test
     void findUsernameReturnsUserDisplayName() {
         FakeUserDAO users = new FakeUserDAO();
@@ -237,6 +253,7 @@ class BusinessServiceTest {
         assertEquals("用户 3", service.findUsername(3L));
     }
 
+    /** 验证档案保存需要本人或管理员权限。 */
     @Test
     void userProfileSaveRequiresOwnerOrAdminAndCreatesProfile() {
         FakeUserDAO users = new FakeUserDAO();
@@ -269,6 +286,7 @@ class BusinessServiceTest {
         assertEquals("用户一", profiles.createdRealName);
     }
 
+    /** 验证只有超级管理员可以修改角色。 */
     @Test
     void onlySuperAdminCanChangeUserRole() {
         FakeUserDAO users = new FakeUserDAO();
@@ -299,6 +317,7 @@ class BusinessServiceTest {
         assertEquals("ADMIN", users.updatedRole);
     }
 
+    /** 验证不能删除自己或超级管理员。 */
     @Test
     void deleteUserRejectsSelfAndSuperAdmin() {
         FakeUserDAO users = new FakeUserDAO();
@@ -324,6 +343,7 @@ class BusinessServiceTest {
         assertEquals(2L, users.deletedUserId);
     }
 
+    /** 验证创建申请前检查库存状态和数量。 */
     @Test
     void createOrderChecksItemStatusAndAmountBeforeWriting() {
         FakeItemDAO items = new FakeItemDAO();
@@ -344,6 +364,7 @@ class BusinessServiceTest {
         assertEquals("CREATE_ORDER", logs.actionType);
     }
 
+    /** 验证不可用库存不能创建申请。 */
     @Test
     void createOrderRejectsUnavailableItem() {
         FakeItemDAO items = new FakeItemDAO();
@@ -358,6 +379,7 @@ class BusinessServiceTest {
         assertEquals(0L, orders.userId);
     }
 
+    /** 验证申请数量不能超过库存。 */
     @Test
     void createOrderRejectsAmountGreaterThanInventory() {
         FakeItemDAO items = new FakeItemDAO();
@@ -370,6 +392,7 @@ class BusinessServiceTest {
         assertEquals("数量不足", result.message());
     }
 
+    /** 验证查询指定用户的申请记录。 */
     @Test
     void findOrdersByUserReturnsUserRecords() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -382,6 +405,7 @@ class BusinessServiceTest {
         assertEquals(21L, result.get(0).get("order_id"));
     }
 
+    /** 验证管理员可以查询全部申请。 */
     @Test
     void adminFindsAllOrders() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -393,6 +417,7 @@ class BusinessServiceTest {
         assertEquals(2, result.size());
     }
 
+    /** 验证用户可以更新自己的待审批申请。 */
     @Test
     void userUpdatesOwnPendingOrder() {
         FakeItemDAO items = new FakeItemDAO();
@@ -410,6 +435,7 @@ class BusinessServiceTest {
         assertEquals(new BigDecimal("8.00"), orders.updatedAmount);
     }
 
+    /** 验证申请更新会拒绝不可用库存。 */
     @Test
     void userOrderUpdateRejectsUnavailableInventory() {
         FakeItemDAO items = new FakeItemDAO();
@@ -422,6 +448,7 @@ class BusinessServiceTest {
         assertEquals("数量不足", result.message());
     }
 
+    /** 验证更新不存在申请时返回失败。 */
     @Test
     void updateOrderStatusReportsMissingRecord() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -435,6 +462,7 @@ class BusinessServiceTest {
         assertEquals(0L, orders.updatedOrderId);
     }
 
+    /** 验证完成申请使用库存扣减事务。 */
     @Test
     void completedOrderUsesInventoryDeductionTransaction() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -448,6 +476,7 @@ class BusinessServiceTest {
         assertEquals(0L, orders.updatedOrderId);
     }
 
+    /** 验证取消申请只更新状态。 */
     @Test
     void cancelledOrderOnlyUpdatesStatus() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -462,6 +491,7 @@ class BusinessServiceTest {
         assertEquals(2, orders.updatedStatus);
     }
 
+    /** 验证管理员可以删除申请记录。 */
     @Test
     void deleteOrderDeletesRecord() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -473,6 +503,7 @@ class BusinessServiceTest {
         assertEquals(21L, orders.deletedOrderId);
     }
 
+    /** 验证用户可以删除自己的待审批申请。 */
     @Test
     void userDeletesOwnPendingOrder() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -486,6 +517,7 @@ class BusinessServiceTest {
         assertEquals(21L, orders.deletedOrderId);
     }
 
+    /** 验证统计接口暴露 MongoDB 聚合结果。 */
     @Test
     void statisticsExposeMongoAggregates() {
         FakeLogDAO logs = new FakeLogDAO();
@@ -511,6 +543,7 @@ class BusinessServiceTest {
         assertEquals(3, service.auditSummary().get(0).getInteger("log_count"));
     }
 
+    /** 验证个人评分统计只包含自己的评论。 */
     @Test
     void userRatingSummaryUsesOnlyOwnComments() {
         FakeCommentDAO comments = new FakeCommentDAO();
@@ -523,6 +556,7 @@ class BusinessServiceTest {
         assertEquals(5D, result.get(0).getDouble("average_rating"));
     }
 
+    /** 验证月度报表传递年份和月份。 */
     @Test
     void monthlyReportCallsOrderProcedureByYearAndMonth() {
         FakeOrderDAO orders = new FakeOrderDAO();
@@ -536,6 +570,7 @@ class BusinessServiceTest {
         assertEquals(7, orders.reportMonth);
     }
 
+    /** 验证库存洞察合并 MySQL 与 MongoDB 数据。 */
     @Test
     void itemInsightsJoinMysqlRowsWithMongoStats() {
         FakeItemDAO items = new FakeItemDAO();
@@ -573,6 +608,7 @@ class BusinessServiceTest {
         assertEquals(5, result.get(0).orderCount());
     }
 
+    /** 验证推荐优先相关分类并提供理由。 */
     @Test
     void recommendationsPreferUserRelatedCategoriesAndExplainReason() {
         FakeItemDAO items = new FakeItemDAO();
@@ -595,6 +631,7 @@ class BusinessServiceTest {
         assertEquals("可用库存推荐", result.get(1).reason());
     }
 
+    /** @return 测试使用的库存行 */
     private static Map<String, Object> item(long id, BigDecimal amount, int status) {
         Map<String, Object> row = new HashMap<>();
         row.put("item_id", id);
@@ -603,6 +640,7 @@ class BusinessServiceTest {
         return row;
     }
 
+    /** 提供库存数据和操作记录的测试替身。 */
     private static class FakeItemDAO extends ItemDAO {
         private Map<String, Object> item;
         private List<Map<String, Object>> rows = List.of();
@@ -651,6 +689,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供分类树数据的测试替身。 */
     private static class FakeCategoryDAO extends CategoryDAO {
         private List<Map<String, Object>> rows = List.of();
         private String createdName;
@@ -695,6 +734,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供库存详情数据的测试替身。 */
     private static class FakeDetailDAO extends DetailDAO {
         private String itemId;
         private String description;
@@ -721,6 +761,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供评论和评分数据的测试替身。 */
     private static class FakeCommentDAO extends CommentDAO {
         private String userId;
         private String itemId;
@@ -769,6 +810,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供行为日志数据的测试替身。 */
     private static class FakeLogDAO extends LogDAO {
         private String userId;
         private String itemId;
@@ -794,6 +836,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供审计汇总数据的测试替身。 */
     private static class FakeSystemLogDAO extends SystemLogDAO {
         private List<Document> auditSummary = List.of();
 
@@ -803,6 +846,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供用户数据和权限操作的测试替身。 */
     private static class FakeUserDAO extends UserDAO {
         private Map<String, Object> row;
         private long updatedUserId;
@@ -842,6 +886,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供用户档案数据的测试替身。 */
     private static class FakeProfileDAO extends ProfileDAO {
         private long createdUserId;
         private String createdRealName;
@@ -859,6 +904,7 @@ class BusinessServiceTest {
         }
     }
 
+    /** 提供申请数据、事务调用和报表参数的测试替身。 */
     private static class FakeOrderDAO extends OrderDAO {
         private long userId;
         private long itemId;

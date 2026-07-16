@@ -18,6 +18,9 @@ import javax.swing.JTextField;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicSpinnerUI;
 
+/**
+ * 提供 Swing 控件共用的颜色、字体和样式配置。
+ */
 final class Ui {
     static final Color PRIMARY = new Color(174, 38, 45);
     static final Color TEXT = new Color(35, 38, 46);
@@ -26,13 +29,16 @@ final class Ui {
     static final Color PANEL = Color.WHITE;
     static final Color BORDER = new Color(213, 208, 198);
 
+    /** 禁止实例化样式工具类。 */
     private Ui() {
     }
 
+    /** @return 指定大小和样式的通用字体 */
     static Font font(int size, int style) {
         return new Font(Font.SANS_SERIF, style, size);
     }
 
+    /** 应用文本输入框样式。 */
     static void field(JTextField field) {
         field.setFont(font(16, Font.PLAIN));
         field.setPreferredSize(new Dimension(320, 44));
@@ -46,6 +52,7 @@ final class Ui {
         ));
     }
 
+    /** 应用下拉框样式。 */
     static void comboBox(JComboBox<?> box, int width) {
         box.setFont(font(16, Font.PLAIN));
         box.setPreferredSize(new Dimension(width, 44));
@@ -104,10 +111,12 @@ final class Ui {
         });
     }
 
+    /** 应用数字选择器样式。 */
     static void spinner(JSpinner spinner, int width) {
         styleSpinner(spinner, width, 44, 16, 10, 36);
     }
 
+    /** 应用可配置的数字选择器样式。 */
     private static void styleSpinner(JSpinner spinner, int width, int height, int fontSize, int paddingX, int buttonWidth) {
         spinner.setFont(font(fontSize, Font.PLAIN));
         spinner.setPreferredSize(new Dimension(width, height));
@@ -139,6 +148,7 @@ final class Ui {
         });
     }
 
+    /** 应用多行文本框样式。 */
     static void area(JTextArea area) {
         area.setFont(font(15, Font.PLAIN));
         area.setForeground(TEXT);
@@ -147,6 +157,7 @@ final class Ui {
         area.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
     }
 
+    /** @return 数字选择器使用的增减按钮 */
     private static JButton spinnerButton(String text, int width, int height) {
         JButton button = new JButton(text);
         button.setFont(font(13, Font.BOLD));
@@ -160,6 +171,7 @@ final class Ui {
         return button;
     }
 
+    /** 应用主操作按钮样式。 */
     static void primaryButton(JButton button, int width) {
         button.setBackground(PRIMARY);
         button.setForeground(Color.WHITE);
@@ -170,6 +182,7 @@ final class Ui {
         button.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
     }
 
+    /** 应用工具栏按钮样式。 */
     static void toolbarButton(JButton button, int width, boolean primary) {
         button.setFont(font(14, Font.BOLD));
         button.setForeground(primary ? Color.WHITE : PRIMARY);
@@ -184,6 +197,7 @@ final class Ui {
         ));
     }
 
+    /** 应用文本按钮样式。 */
     static void textButton(JButton button) {
         button.setForeground(PRIMARY);
         button.setBackground(PAGE);
