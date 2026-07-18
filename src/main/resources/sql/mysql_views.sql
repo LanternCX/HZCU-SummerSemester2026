@@ -13,6 +13,7 @@ SELECT
   u.`status`,
   p.`real_name`,
   p.`id_card`,
+  p.`blood_type`,
   p.`address`
 FROM `users` u
 LEFT JOIN `profiles` p ON p.`user_id` = u.`user_id`;

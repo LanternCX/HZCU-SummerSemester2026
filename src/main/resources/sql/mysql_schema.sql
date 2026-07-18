@@ -85,6 +85,7 @@ CREATE TABLE `profiles` (
   `user_id` BIGINT NOT NULL,
   `real_name` VARCHAR(50) NOT NULL,
   `id_card` VARCHAR(20) NOT NULL,
+  `blood_type` ENUM('A型', 'B型', 'AB型', 'O型') NULL,
   `address` VARCHAR(500) NULL,
   `notes` TEXT NULL,
   PRIMARY KEY (`profile_id`),

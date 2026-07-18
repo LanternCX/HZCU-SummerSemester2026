@@ -272,10 +272,10 @@ class BusinessServiceTest {
         );
 
         BusinessService.BusinessResult denied = service.saveUserProfile(
-            3L, false, 2L, "user01@example.test", "19900000002", "USER", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+            3L, false, 2L, "user01@example.test", "19900000002", "USER", 1, "用户一", "TEST-ID-0020", "A型", "地址", "备注"
         );
         BusinessService.BusinessResult saved = service.saveUserProfile(
-            2L, false, 2L, "user01@example.test", "19900000002", "USER", 0, "用户一", "TEST-ID-0020", "地址", "备注"
+            2L, false, 2L, "user01@example.test", "19900000002", "USER", 0, "用户一", "TEST-ID-0020", "A型", "地址", "备注"
         );
 
         assertFalse(denied.success());
@@ -284,6 +284,7 @@ class BusinessServiceTest {
         assertEquals(0, users.updatedStatus);
         assertEquals(2L, profiles.createdUserId);
         assertEquals("用户一", profiles.createdRealName);
+        assertEquals("A型", profiles.createdBloodType);
     }
 
     /** 验证只有超级管理员可以修改角色。 */
@@ -305,10 +306,10 @@ class BusinessServiceTest {
         );
 
         BusinessService.BusinessResult denied = service.saveUserProfile(
-            9L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+            9L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "B型", "地址", "备注"
         );
         BusinessService.BusinessResult saved = service.saveUserProfile(
-            1L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "地址", "备注"
+            1L, true, 2L, "user01@example.test", "19900000002", "ADMIN", 1, "用户一", "TEST-ID-0020", "B型", "地址", "备注"
         );
 
         assertFalse(denied.success());
@@ -890,6 +891,7 @@ class BusinessServiceTest {
     private static class FakeProfileDAO extends ProfileDAO {
         private long createdUserId;
         private String createdRealName;
+        private String createdBloodType;
 
         @Override
         public Optional<Map<String, Object>> findByUserId(long userId) {
@@ -897,9 +899,10 @@ class BusinessServiceTest {
         }
 
         @Override
-        public long create(long userId, String realName, String idCard, String address, String notes) {
+        public long create(long userId, String realName, String idCard, String bloodType, String address, String notes) {
             createdUserId = userId;
             createdRealName = realName;
+            createdBloodType = bloodType;
             return 41L;
         }
     }

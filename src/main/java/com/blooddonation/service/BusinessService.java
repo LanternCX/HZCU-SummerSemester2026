@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.bson.Document;
 
 /**
@@ -117,6 +118,7 @@ public class BusinessService {
         int status,
         String realName,
         String idCard,
+        String bloodType,
         String address,
         String notes
     ) {
@@ -131,6 +133,7 @@ public class BusinessService {
         String cleanPhone = clean(phone);
         String cleanRealName = clean(realName);
         String cleanIdCard = clean(idCard);
+        String cleanBloodType = clean(bloodType);
         if (!cleanEmail.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             return BusinessResult.fail("请输入有效邮箱");
         }
@@ -139,6 +142,9 @@ public class BusinessService {
         }
         if (cleanRealName.isEmpty() || cleanIdCard.isEmpty()) {
             return BusinessResult.fail("请输入姓名和证件号");
+        }
+        if (!Set.of("A型", "B型", "AB型", "O型").contains(cleanBloodType)) {
+            return BusinessResult.fail("请选择有效血型");
         }
         if (status < 0 || status > 1) {
             return BusinessResult.fail("请选择有效用户状态");
@@ -163,9 +169,9 @@ public class BusinessService {
         }
         Optional<Map<String, Object>> profile = profileDAO.findByUserId(userId);
         if (profile.isPresent()) {
-            profileDAO.update(((Number) profile.get().get("profile_id")).longValue(), cleanRealName, cleanIdCard, clean(address), clean(notes));
+            profileDAO.update(((Number) profile.get().get("profile_id")).longValue(), cleanRealName, cleanIdCard, cleanBloodType, clean(address), clean(notes));
         } else {
-            profileDAO.create(userId, cleanRealName, cleanIdCard, clean(address), clean(notes));
+            profileDAO.create(userId, cleanRealName, cleanIdCard, cleanBloodType, clean(address), clean(notes));
         }
         return BusinessResult.ok(userId, "保存成功");
     }

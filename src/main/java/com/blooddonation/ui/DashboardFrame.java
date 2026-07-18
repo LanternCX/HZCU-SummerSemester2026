@@ -33,6 +33,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -254,6 +255,8 @@ public class DashboardFrame extends JFrame {
 
         DefaultTableModel model = tableModel("item_id", "库存批次", "分类", "血型", "数量", "评分", "推荐理由");
         JTable table = table(model);
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
+        table.setRowSorter(sorter);
         hideFirstColumn(table);
         setColumnWidths(table, 0, 300, 110, 90, 90, 90, 220);
 
@@ -272,6 +275,18 @@ public class DashboardFrame extends JFrame {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actions.setBackground(Ui.PANEL);
+        JCheckBox matchBloodType = new JCheckBox("仅显示匹配血型");
+        matchBloodType.setBackground(Ui.PANEL);
+        matchBloodType.setFont(Ui.font(14, Font.PLAIN));
+        matchBloodType.addActionListener(event -> {
+            String bloodType = currentUserBloodType(session);
+            if (matchBloodType.isSelected() && bloodType.isBlank()) {
+                matchBloodType.setSelected(false);
+                warn("请先在我的档案中填写血型。");
+            }
+            sorter.setRowFilter(matchBloodType.isSelected() ? RowFilter.regexFilter("^" + bloodType + "$", 3) : null);
+        });
+        actions.add(matchBloodType);
         JButton applyButton = new JButton("申请");
         Ui.toolbarButton(applyButton, 96, true);
         applyButton.addActionListener(event -> {
@@ -434,6 +449,8 @@ public class DashboardFrame extends JFrame {
         realNameField.setText(valueText(row.get("real_name")));
         JTextField idCardField = field();
         idCardField.setText(valueText(row.get("id_card")));
+        JComboBox<String> bloodTypeBox = bloodTypeBox();
+        bloodTypeBox.setSelectedItem(row.get("blood_type"));
         JTextField addressField = field();
         addressField.setText(valueText(row.get("address")));
         JTextArea notesArea = area(4);
@@ -447,7 +464,7 @@ public class DashboardFrame extends JFrame {
         roleBox.setSelectedIndex("ADMIN".equals(row.get("role")) ? 1 : 0);
         roleBox.setEnabled(isSuperAdmin(session) && !isSuperAdmin(userId));
 
-        JPanel form = userProfileForm(usernameField, roleBox, statusBox, emailField, phoneField, realNameField, idCardField, addressField, notesArea);
+        JPanel form = userProfileForm(usernameField, roleBox, statusBox, emailField, phoneField, realNameField, idCardField, bloodTypeBox, addressField, notesArea);
 
         JButton cancelButton = new JButton("取消");
         Ui.textButton(cancelButton);
@@ -466,6 +483,7 @@ public class DashboardFrame extends JFrame {
                     statusBox.getSelectedIndex(),
                     realNameField.getText(),
                     idCardField.getText(),
+                    String.valueOf(bloodTypeBox.getSelectedItem()),
                     addressField.getText(),
                     notesArea.getText()
                 );
@@ -615,10 +633,10 @@ public class DashboardFrame extends JFrame {
 
         resetMain("用户管理", "维护用户权限、状态和档案信息，双击表格行打开详情。");
 
-        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号");
+        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号", "血型");
         JTable table = table(model);
         hideFirstColumn(table);
-        setColumnWidths(table, 0, 150, 90, 90, 220, 140, 130, 170);
+        setColumnWidths(table, 0, 150, 90, 90, 220, 140, 130, 170, 90);
 
         JPanel tabs = tabs();
         table.addMouseListener(new MouseAdapter() {
@@ -670,7 +688,7 @@ public class DashboardFrame extends JFrame {
     private void showOwnProfilePanel(UserSession session) {
         resetMain("我的档案", "查看和维护自己的联系方式与档案。");
 
-        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号");
+        DefaultTableModel model = tableModel("user_id", "用户名", "角色", "状态", "邮箱", "手机号", "姓名", "证件号", "血型");
         loadUserProfiles(model, session);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -1742,6 +1760,7 @@ public class DashboardFrame extends JFrame {
                 addInfo(grid, 2, 1, 1, "手机号", model.getValueAt(i, 5));
                 addInfo(grid, 3, 0, 1, "姓名", model.getValueAt(i, 6));
                 addInfo(grid, 3, 1, 1, "证件号", model.getValueAt(i, 7));
+                addInfo(grid, 4, 0, 2, "血型", model.getValueAt(i, 8));
                 body.add(grid, BorderLayout.NORTH);
                 return body;
             }
@@ -2213,6 +2232,7 @@ public class DashboardFrame extends JFrame {
         JTextField phoneField,
         JTextField realNameField,
         JTextField idCardField,
+        JComboBox<String> bloodTypeBox,
         JTextField addressField,
         JTextArea notesArea
     ) {
@@ -2224,7 +2244,8 @@ public class DashboardFrame extends JFrame {
         addFormField(form, 1, 1, 1, "邮箱", emailField);
         addFormField(form, 2, 0, 1, "手机号", phoneField);
         addFormField(form, 2, 1, 1, "姓名", realNameField);
-        addFormField(form, 3, 0, 2, "证件号", idCardField);
+        addFormField(form, 3, 0, 1, "证件号", idCardField);
+        addFormField(form, 3, 1, 1, "血型", bloodTypeBox);
         addFormField(form, 4, 0, 2, "地址", addressField);
         addFormField(form, 5, 0, 2, "备注", areaScroll(notesArea));
         return form;
@@ -2629,12 +2650,19 @@ public class DashboardFrame extends JFrame {
                     blankText(valueText(row.get("email"))),
                     blankText(valueText(row.get("phone"))),
                     blankText(valueText(row.get("real_name"))),
-                    blankText(valueText(row.get("id_card")))
+                    blankText(valueText(row.get("id_card"))),
+                    blankText(valueText(row.get("blood_type")))
                 });
             }
         } catch (RuntimeException ex) {
             warn("用户档案加载失败，请检查数据库连接。");
         }
+    }
+
+    /** @return 当前用户档案中的血型 */
+    private String currentUserBloodType(UserSession session) {
+        Map<String, Object> row = findUserProfileRow(session.userId(), session);
+        return row == null ? "" : valueText(row.get("blood_type"));
     }
 
     /** 加载管理员使用的热度和评分统计。 */
